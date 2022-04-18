@@ -1,5 +1,4 @@
-use crate::de::{Deserialize, Map, Seq, Visitor};
-use crate::error::Result;
+use crate::de::{Deserialize, Map, Seq, Visitor, VisitorError};
 use crate::json::{Array, Number, Object};
 use crate::private;
 use crate::ser::{Fragment, Serialize};
@@ -59,40 +58,40 @@ impl Serialize for Value {
     }
 }
 
-impl Deserialize for Value {
-    fn begin(out: &mut Option<Self>) -> &mut dyn Visitor {
-        impl Visitor for Place<Value> {
-            fn null(&mut self) -> Result<()> {
+impl<E: VisitorError> Deserialize<E> for Value {
+    fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
+        impl<E: VisitorError> Visitor<E> for Place<Value> {
+            fn null(&mut self) -> Result<(), E> {
                 self.out = Some(Value::Null);
                 Ok(())
             }
 
-            fn boolean(&mut self, b: bool) -> Result<()> {
+            fn boolean(&mut self, b: bool) -> Result<(), E> {
                 self.out = Some(Value::Bool(b));
                 Ok(())
             }
 
-            fn string(&mut self, s: &str) -> Result<()> {
+            fn string(&mut self, s: &str) -> Result<(), E> {
                 self.out = Some(Value::String(s.to_owned()));
                 Ok(())
             }
 
-            fn negative(&mut self, n: i64) -> Result<()> {
+            fn negative(&mut self, n: i64) -> Result<(), E> {
                 self.out = Some(Value::Number(Number::I64(n)));
                 Ok(())
             }
 
-            fn nonnegative(&mut self, n: u64) -> Result<()> {
+            fn nonnegative(&mut self, n: u64) -> Result<(), E> {
                 self.out = Some(Value::Number(Number::U64(n)));
                 Ok(())
             }
 
-            fn float(&mut self, n: f64) -> Result<()> {
+            fn float(&mut self, n: f64) -> Result<(), E> {
                 self.out = Some(Value::Number(Number::F64(n)));
                 Ok(())
             }
 
-            fn seq(&mut self) -> Result<Box<dyn Seq + '_>> {
+            fn seq(&mut self) -> Result<Box<dyn Seq<E> + '_>, E> {
                 Ok(Box::new(ArrayBuilder {
                     out: &mut self.out,
                     array: Array::new(),
@@ -100,7 +99,7 @@ impl Deserialize for Value {
                 }))
             }
 
-            fn map(&mut self) -> Result<Box<dyn Map + '_>> {
+            fn map(&mut self) -> Result<Box<dyn Map<E> + '_>, E> {
                 Ok(Box::new(ObjectBuilder {
                     out: &mut self.out,
                     object: Object::new(),
@@ -124,13 +123,13 @@ impl Deserialize for Value {
             }
         }
 
-        impl<'a> Seq for ArrayBuilder<'a> {
-            fn element(&mut self) -> Result<&mut dyn Visitor> {
+        impl<'a, E: VisitorError> Seq<E> for ArrayBuilder<'a> {
+            fn element(&mut self) -> Result<&mut dyn Visitor<E>, E> {
                 self.shift();
                 Ok(Deserialize::begin(&mut self.element))
             }
 
-            fn finish(&mut self) -> Result<()> {
+            fn finish(&mut self) -> Result<(), E> {
                 self.shift();
                 *self.out = Some(Value::Array(mem::replace(&mut self.array, Array::new())));
                 Ok(())
@@ -152,14 +151,14 @@ impl Deserialize for Value {
             }
         }
 
-        impl<'a> Map for ObjectBuilder<'a> {
-            fn key(&mut self, k: &str) -> Result<&mut dyn Visitor> {
+        impl<'a, E: VisitorError> Map<E> for ObjectBuilder<'a> {
+            fn key(&mut self, k: &str) -> Result<&mut dyn Visitor<E>, E> {
                 self.shift();
                 self.key = Some(k.to_owned());
                 Ok(Deserialize::begin(&mut self.value))
             }
 
-            fn finish(&mut self) -> Result<()> {
+            fn finish(&mut self) -> Result<(), E> {
                 self.shift();
                 *self.out = Some(Value::Object(mem::replace(&mut self.object, Object::new())));
                 Ok(())

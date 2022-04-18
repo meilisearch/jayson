@@ -1,6 +1,5 @@
 use self::Event::*;
-use crate::de::{Deserialize, Map, Seq, Visitor};
-use crate::error::{Error, Result};
+use crate::de::{Deserialize, Map, Seq, Visitor, VisitorError};
 use crate::ptr::NonuniqueBox;
 use alloc::vec::Vec;
 use core::char;
@@ -27,25 +26,25 @@ use core::str;
 ///     Ok(())
 /// }
 /// ```
-pub fn from_str<T: Deserialize>(j: &str) -> Result<T> {
+pub fn from_str<E: VisitorError, T: Deserialize<E>>(j: &str) -> Result<T, E> {
     let mut out = None;
     from_str_impl(j, T::begin(&mut out))?;
-    out.ok_or(Error)
+    out.ok_or(E::unexpected())
 }
 
-struct Deserializer<'a, 'b> {
+struct Deserializer<'a, 'b, E> {
     input: &'a [u8],
     pos: usize,
     buffer: Vec<u8>,
-    stack: Vec<(NonNull<dyn Visitor>, Layer<'b>)>,
+    stack: Vec<(NonNull<dyn Visitor<E>>, Layer<'b, E>)>,
 }
 
-enum Layer<'a> {
-    Seq(NonuniqueBox<dyn Seq + 'a>),
-    Map(NonuniqueBox<dyn Map + 'a>),
+enum Layer<'a, E> {
+    Seq(NonuniqueBox<dyn Seq<E> + 'a>),
+    Map(NonuniqueBox<dyn Map<E> + 'a>),
 }
 
-impl<'a, 'b> Drop for Deserializer<'a, 'b> {
+impl<'a, 'b, E> Drop for Deserializer<'a, 'b, E> {
     fn drop(&mut self) {
         // Drop layers in reverse order.
         while !self.stack.is_empty() {
@@ -54,9 +53,9 @@ impl<'a, 'b> Drop for Deserializer<'a, 'b> {
     }
 }
 
-fn from_str_impl(j: &str, visitor: &mut dyn Visitor) -> Result<()> {
+fn from_str_impl<E: VisitorError>(j: &str, visitor: &mut dyn Visitor<E>) -> Result<(), E> {
     let visitor = NonNull::from(visitor);
-    let mut visitor = unsafe { extend_lifetime!(visitor as NonNull<dyn Visitor>) };
+    let mut visitor = unsafe { extend_lifetime!(visitor as NonNull<dyn Visitor<E>>) };
     let mut de = Deserializer {
         input: j.as_bytes(),
         pos: 0,
@@ -128,7 +127,7 @@ fn from_str_impl(j: &str, visitor: &mut dyn Visitor) -> Result<()> {
                     match &mut layer {
                         Layer::Seq(seq) if close == b']' => seq.finish()?,
                         Layer::Map(map) if close == b'}' => map.finish()?,
-                        _ => return Err(Error),
+                        _ => return Err(E::unexpected()),
                     };
                     let frame = match de.stack.pop() {
                         Some(frame) => frame,
@@ -140,7 +139,7 @@ fn from_str_impl(j: &str, visitor: &mut dyn Visitor) -> Result<()> {
                 }
                 _ => {
                     if accept_comma {
-                        return Err(Error);
+                        return Err(E::unexpected());
                     } else {
                         break;
                     }
@@ -153,21 +152,21 @@ fn from_str_impl(j: &str, visitor: &mut dyn Visitor) -> Result<()> {
             Layer::Seq(mut seq) => {
                 let element = seq.element()?;
                 let next = NonNull::from(element);
-                visitor = unsafe { extend_lifetime!(next as NonNull<dyn Visitor>) };
+                visitor = unsafe { extend_lifetime!(next as NonNull<dyn Visitor<E>>) };
                 de.stack.push((outer, Layer::Seq(seq)));
             }
             Layer::Map(mut map) => {
                 match de.parse_whitespace() {
                     Some(b'"') => de.bump(),
-                    _ => return Err(Error),
+                    _ => return Err(E::unexpected()),
                 }
                 let key = de.parse_str()?;
                 let entry = map.key(key)?;
                 let next = NonNull::from(entry);
-                visitor = unsafe { extend_lifetime!(next as NonNull<dyn Visitor>) };
+                visitor = unsafe { extend_lifetime!(next as NonNull<dyn Visitor<E>>) };
                 match de.parse_whitespace() {
                     Some(b':') => de.bump(),
-                    _ => return Err(Error),
+                    _ => return Err(E::unexpected()),
                 }
                 de.stack.push((outer, Layer::Map(map)));
             }
@@ -175,7 +174,7 @@ fn from_str_impl(j: &str, visitor: &mut dyn Visitor) -> Result<()> {
     }
 
     match de.parse_whitespace() {
-        Some(_) => Err(Error),
+        Some(_) => Err(E::unexpected()),
         None => Ok(()),
     }
 }
@@ -199,7 +198,7 @@ macro_rules! overflow {
     };
 }
 
-impl<'a, 'b> Deserializer<'a, 'b> {
+impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
     fn next(&mut self) -> Option<u8> {
         if self.pos < self.input.len() {
             let ch = self.input[self.pos];
@@ -230,7 +229,7 @@ impl<'a, 'b> Deserializer<'a, 'b> {
         self.pos += 1;
     }
 
-    fn parse_str(&mut self) -> Result<&str> {
+    fn parse_str(&mut self) -> Result<&str, E> {
         fn result(bytes: &[u8]) -> &str {
             // The deserialization input came in as &str with a UTF-8 guarantee,
             // and the \u-escapes are checked along the way, so don't need to
@@ -247,7 +246,7 @@ impl<'a, 'b> Deserializer<'a, 'b> {
                 self.pos += 1;
             }
             if self.pos == self.input.len() {
-                return Err(Error);
+                return Err(E::unexpected());
             }
             match self.input[self.pos] {
                 b'"' => {
@@ -270,19 +269,19 @@ impl<'a, 'b> Deserializer<'a, 'b> {
                     start = self.pos;
                 }
                 _ => {
-                    return Err(Error);
+                    return Err(E::unexpected());
                 }
             }
         }
     }
 
-    fn next_or_eof(&mut self) -> Result<u8> {
-        self.next().ok_or(Error)
+    fn next_or_eof(&mut self) -> Result<u8, E> {
+        self.next().ok_or(E::unexpected())
     }
 
     /// Parses a JSON escape sequence and appends it into the scratch space. Assumes
     /// the previous byte read was a backslash.
-    fn parse_escape(&mut self) -> Result<()> {
+    fn parse_escape(&mut self) -> Result<(), E> {
         let ch = self.next_or_eof()?;
 
         match ch {
@@ -297,23 +296,23 @@ impl<'a, 'b> Deserializer<'a, 'b> {
             b'u' => {
                 let c = match self.decode_hex_escape()? {
                     0xDC00..=0xDFFF => {
-                        return Err(Error);
+                        return Err(E::unexpected());
                     }
 
                     // Non-BMP characters are encoded as a sequence of
                     // two hex escapes, representing UTF-16 surrogates.
                     n1 @ 0xD800..=0xDBFF => {
                         if self.next_or_eof()? != b'\\' {
-                            return Err(Error);
+                            return Err(E::unexpected());
                         }
                         if self.next_or_eof()? != b'u' {
-                            return Err(Error);
+                            return Err(E::unexpected());
                         }
 
                         let n2 = self.decode_hex_escape()?;
 
                         if n2 < 0xDC00 || n2 > 0xDFFF {
-                            return Err(Error);
+                            return Err(E::unexpected());
                         }
 
                         let n = (u32::from(n1 - 0xD800) << 10 | u32::from(n2 - 0xDC00)) + 0x1_0000;
@@ -321,7 +320,7 @@ impl<'a, 'b> Deserializer<'a, 'b> {
                         match char::from_u32(n) {
                             Some(c) => c,
                             None => {
-                                return Err(Error);
+                                return Err(E::unexpected());
                             }
                         }
                     }
@@ -329,7 +328,7 @@ impl<'a, 'b> Deserializer<'a, 'b> {
                     n => match char::from_u32(u32::from(n)) {
                         Some(c) => c,
                         None => {
-                            return Err(Error);
+                            return Err(E::unexpected());
                         }
                     },
                 };
@@ -338,14 +337,14 @@ impl<'a, 'b> Deserializer<'a, 'b> {
                     .extend_from_slice(c.encode_utf8(&mut [0_u8; 4]).as_bytes());
             }
             _ => {
-                return Err(Error);
+                return Err(E::unexpected());
             }
         }
 
         Ok(())
     }
 
-    fn decode_hex_escape(&mut self) -> Result<u16> {
+    fn decode_hex_escape(&mut self) -> Result<u16, E> {
         let mut n = 0;
         for _ in 0..4 {
             n = match self.next_or_eof()? {
@@ -357,7 +356,7 @@ impl<'a, 'b> Deserializer<'a, 'b> {
                 b'e' | b'E' => n * 16_u16 + 14_u16,
                 b'f' | b'F' => n * 16_u16 + 15_u16,
                 _ => {
-                    return Err(Error);
+                    return Err(E::unexpected());
                 }
             };
         }
@@ -377,15 +376,15 @@ impl<'a, 'b> Deserializer<'a, 'b> {
         }
     }
 
-    fn parse_ident(&mut self, ident: &[u8]) -> Result<()> {
+    fn parse_ident(&mut self, ident: &[u8]) -> Result<(), E> {
         for expected in ident {
             match self.next() {
                 None => {
-                    return Err(Error);
+                    return Err(E::unexpected());
                 }
                 Some(next) => {
                     if next != *expected {
-                        return Err(Error);
+                        return Err(E::unexpected());
                     }
                 }
             }
@@ -393,12 +392,12 @@ impl<'a, 'b> Deserializer<'a, 'b> {
         Ok(())
     }
 
-    fn parse_integer(&mut self, nonnegative: bool, first_digit: u8) -> Result<Event> {
+    fn parse_integer(&mut self, nonnegative: bool, first_digit: u8) -> Result<Event, E> {
         match first_digit {
             b'0' => {
                 // There can be only one leading '0'.
                 match self.peek_or_nul() {
-                    b'0'..=b'9' => Err(Error),
+                    b'0'..=b'9' => Err(E::unexpected()),
                     _ => self.parse_number(nonnegative, 0),
                 }
             }
@@ -432,7 +431,7 @@ impl<'a, 'b> Deserializer<'a, 'b> {
                     }
                 }
             }
-            _ => Err(Error),
+            _ => Err(E::unexpected()),
         }
     }
 
@@ -441,7 +440,7 @@ impl<'a, 'b> Deserializer<'a, 'b> {
         nonnegative: bool,
         significand: u64,
         mut exponent: i32,
-    ) -> Result<f64> {
+    ) -> Result<f64, E> {
         loop {
             match self.peek_or_nul() {
                 b'0'..=b'9' => {
@@ -463,7 +462,7 @@ impl<'a, 'b> Deserializer<'a, 'b> {
         }
     }
 
-    fn parse_number(&mut self, nonnegative: bool, significand: u64) -> Result<Event> {
+    fn parse_number(&mut self, nonnegative: bool, significand: u64) -> Result<Event, E> {
         match self.peek_or_nul() {
             b'.' => self.parse_decimal(nonnegative, significand, 0).map(Float),
             b'e' | b'E' => self.parse_exponent(nonnegative, significand, 0).map(Float),
@@ -489,7 +488,7 @@ impl<'a, 'b> Deserializer<'a, 'b> {
         nonnegative: bool,
         mut significand: u64,
         mut exponent: i32,
-    ) -> Result<f64> {
+    ) -> Result<f64, E> {
         self.bump();
 
         let mut at_least_one_digit = false;
@@ -512,7 +511,7 @@ impl<'a, 'b> Deserializer<'a, 'b> {
         }
 
         if !at_least_one_digit {
-            return Err(Error);
+            return Err(E::unexpected());
         }
 
         match self.peek_or_nul() {
@@ -526,7 +525,7 @@ impl<'a, 'b> Deserializer<'a, 'b> {
         nonnegative: bool,
         significand: u64,
         starting_exp: i32,
-    ) -> Result<f64> {
+    ) -> Result<f64, E> {
         self.bump();
 
         let positive_exp = match self.peek_or_nul() {
@@ -545,7 +544,7 @@ impl<'a, 'b> Deserializer<'a, 'b> {
         let mut exp = match self.next_or_nul() {
             c @ b'0'..=b'9' => i32::from(c - b'0'),
             _ => {
-                return Err(Error);
+                return Err(E::unexpected());
             }
         };
 
@@ -578,10 +577,10 @@ impl<'a, 'b> Deserializer<'a, 'b> {
         nonnegative: bool,
         significand: u64,
         positive_exp: bool,
-    ) -> Result<f64> {
+    ) -> Result<f64, E> {
         // Error instead of +/- infinity.
         if significand != 0 && positive_exp {
-            return Err(Error);
+            return Err(E::unexpected());
         }
 
         while let b'0'..=b'9' = self.peek_or_nul() {
@@ -590,10 +589,10 @@ impl<'a, 'b> Deserializer<'a, 'b> {
         Ok(if nonnegative { 0.0 } else { -0.0 })
     }
 
-    fn event(&mut self) -> Result<Event> {
+    fn event(&mut self) -> Result<Event, E> {
         let peek = match self.parse_whitespace() {
             Some(b) => b,
-            None => return Err(Error),
+            None => return Err(E::unexpected()),
         };
         self.bump();
         match peek {
@@ -617,12 +616,16 @@ impl<'a, 'b> Deserializer<'a, 'b> {
                 self.parse_ident(b"alse")?;
                 Ok(Bool(false))
             }
-            _ => Err(Error),
+            _ => Err(E::unexpected()),
         }
     }
 }
 
-fn f64_from_parts(nonnegative: bool, significand: u64, mut exponent: i32) -> Result<f64> {
+fn f64_from_parts<E: VisitorError>(
+    nonnegative: bool,
+    significand: u64,
+    mut exponent: i32,
+) -> Result<f64, E> {
     let mut f = significand as f64;
     loop {
         match POW10.get(exponent.abs() as usize) {
@@ -630,7 +633,7 @@ fn f64_from_parts(nonnegative: bool, significand: u64, mut exponent: i32) -> Res
                 if exponent >= 0 {
                     f *= pow;
                     if f.is_infinite() {
-                        return Err(Error);
+                        return Err(E::unexpected());
                     }
                 } else {
                     f /= pow;
@@ -642,7 +645,7 @@ fn f64_from_parts(nonnegative: bool, significand: u64, mut exponent: i32) -> Res
                     break;
                 }
                 if exponent >= 0 {
-                    return Err(Error);
+                    return Err(E::unexpected());
                 }
                 f /= 1e308;
                 exponent += 308;

@@ -1,9 +1,8 @@
-use crate::de::{Map, Seq, Visitor};
-use crate::error::Result;
+use crate::de::{Map, Seq, Visitor, VisitorError};
 use alloc::boxed::Box;
 
-impl dyn Visitor {
-    pub fn ignore() -> &'static mut dyn Visitor {
+impl<E: VisitorError> dyn Visitor<E> {
+    pub fn ignore() -> &'static mut dyn Visitor<E> {
         static mut IGNORE: Ignore = Ignore;
         unsafe { &mut IGNORE }
         //
@@ -21,56 +20,56 @@ impl dyn Visitor {
 
 pub(crate) struct Ignore;
 
-impl Visitor for Ignore {
-    fn null(&mut self) -> Result<()> {
+impl<E: VisitorError + 'static> Visitor<E> for Ignore {
+    fn null(&mut self) -> Result<(), E> {
         Ok(())
     }
 
-    fn boolean(&mut self, _b: bool) -> Result<()> {
+    fn boolean(&mut self, _b: bool) -> Result<(), E> {
         Ok(())
     }
 
-    fn string(&mut self, _s: &str) -> Result<()> {
+    fn string(&mut self, _s: &str) -> Result<(), E> {
         Ok(())
     }
 
-    fn negative(&mut self, _n: i64) -> Result<()> {
+    fn negative(&mut self, _n: i64) -> Result<(), E> {
         Ok(())
     }
 
-    fn nonnegative(&mut self, _n: u64) -> Result<()> {
+    fn nonnegative(&mut self, _n: u64) -> Result<(), E> {
         Ok(())
     }
 
-    fn float(&mut self, _n: f64) -> Result<()> {
+    fn float(&mut self, _n: f64) -> Result<(), E> {
         Ok(())
     }
 
-    fn seq(&mut self) -> Result<Box<dyn Seq + '_>> {
+    fn seq(&mut self) -> Result<Box<dyn Seq<E> + '_>, E> {
         Ok(Box::new(Ignore))
     }
 
-    fn map(&mut self) -> Result<Box<dyn Map + '_>> {
+    fn map(&mut self) -> Result<Box<dyn Map<E> + '_>, E> {
         Ok(Box::new(Ignore))
     }
 }
 
-impl Seq for Ignore {
-    fn element(&mut self) -> Result<&mut dyn Visitor> {
-        Ok(<dyn Visitor>::ignore())
+impl<E: VisitorError + 'static> Seq<E> for Ignore {
+    fn element(&mut self) -> Result<&mut dyn Visitor<E>, E> {
+        Ok(<dyn Visitor<E>>::ignore())
     }
 
-    fn finish(&mut self) -> Result<()> {
+    fn finish(&mut self) -> Result<(), E> {
         Ok(())
     }
 }
 
-impl Map for Ignore {
-    fn key(&mut self, _k: &str) -> Result<&mut dyn Visitor> {
-        Ok(<dyn Visitor>::ignore())
+impl<E: VisitorError + 'static> Map<E> for Ignore {
+    fn key(&mut self, _k: &str) -> Result<&mut dyn Visitor<E>, E> {
+        Ok(<dyn Visitor<E>>::ignore())
     }
 
-    fn finish(&mut self) -> Result<()> {
+    fn finish(&mut self) -> Result<(), E> {
         Ok(())
     }
 }
