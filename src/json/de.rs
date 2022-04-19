@@ -26,7 +26,7 @@ use core::str;
 ///     Ok(())
 /// }
 /// ```
-pub fn from_str<E: VisitorError, T: Deserialize<E>>(j: &str) -> Result<T, E> {
+pub fn from_str<T: Deserialize<E>, E: VisitorError>(j: &str) -> Result<T, E> {
     let mut out = None;
     from_str_impl(j, T::begin(&mut out))?;
     out.ok_or(E::unexpected())

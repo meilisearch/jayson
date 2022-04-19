@@ -1,11 +1,19 @@
 use core::fmt::{self, Display};
 
+use crate::de::VisitorError;
+
 /// Error type when deserialization fails.
 ///
 /// Miniserde errors contain no information about what went wrong. **If you need
 /// more than no information, use Serde.**
 #[derive(Copy, Clone, Debug)]
 pub struct Error;
+
+impl VisitorError for Error {
+    fn unexpected() -> Self {
+        Self
+    }
+}
 
 /// Result type returned by deserialization functions.
 pub type Result<T> = core::result::Result<T, Error>;

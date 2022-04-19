@@ -184,12 +184,13 @@
 
 mod impls;
 
+use crate::error::Error;
 use alloc::boxed::Box;
 
 /// Trait for data structures that can be deserialized from a JSON string.
 ///
 /// [Refer to the module documentation for examples.][crate::de]
-pub trait Deserialize<E>: Sized {
+pub trait Deserialize<E = Error>: Sized {
     /// The only correct implementation of this method is:
     ///
     /// ```rust
@@ -224,7 +225,7 @@ pub trait VisitorError: 'static {
 /// Trait that can write data into an output place.
 ///
 /// [Refer to the module documentation for examples.][crate::de]
-pub trait Visitor<E: VisitorError> {
+pub trait Visitor<E: VisitorError = Error> {
     fn null(&mut self) -> Result<(), E> {
         Err(E::unexpected())
     }
