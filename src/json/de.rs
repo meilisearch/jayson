@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 use core::char;
 use core::ptr::NonNull;
 use core::str;
+use std::fmt::{Display, LowerHex};
 
 /// Deserialize a JSON string into any deserializable type.
 ///
@@ -37,6 +38,10 @@ struct Deserializer<'a, 'b, E> {
     pos: usize,
     buffer: Vec<u8>,
     stack: Vec<(NonNull<dyn Visitor<E>>, Layer<'b, E>)>,
+    //line in the input
+    line: usize,
+    //posiiton in line
+    ch: usize,
 }
 
 enum Layer<'a, E> {
@@ -61,6 +66,8 @@ fn from_str_impl<E: VisitorError>(j: &str, visitor: &mut dyn Visitor<E>) -> Resu
         pos: 0,
         buffer: Vec::new(),
         stack: Vec::new(),
+        line: 0,
+        ch: 0,
     };
 
     'outer: loop {
@@ -125,9 +132,20 @@ fn from_str_impl<E: VisitorError>(j: &str, visitor: &mut dyn Visitor<E>) -> Resu
                 close @ b']' | close @ b'}' => {
                     de.bump();
                     match &mut layer {
-                        Layer::Seq(seq) if close == b']' => seq.finish()?,
-                        Layer::Map(map) if close == b'}' => map.finish()?,
-                        _ => return Err(E::unexpected()),
+                        Layer::Seq(seq) => {
+                            if close == b']' {
+                                seq.finish()?;
+                            } else {
+                                return Err(de.error("expected closing `]`"));
+                            }
+                        }
+                        Layer::Map(map) => {
+                            if close == b'}' {
+                                map.finish()?;
+                            } else {
+                                return Err(de.error("expected closing `}`"));
+                            }
+                        }
                     };
                     let frame = match de.stack.pop() {
                         Some(frame) => frame,
@@ -137,9 +155,13 @@ fn from_str_impl<E: VisitorError>(j: &str, visitor: &mut dyn Visitor<E>) -> Resu
                     visitor = frame.0;
                     layer = frame.1;
                 }
-                _ => {
+                found => {
                     if accept_comma {
-                        return Err(E::unexpected());
+                        if found == 0 {
+                            return Err(de.error(format!("unexpected EOF")));
+                        } else {
+                            return Err(de.error(format!("unexpected `{}`", found as char)));
+                        }
                     } else {
                         break;
                     }
@@ -158,7 +180,12 @@ fn from_str_impl<E: VisitorError>(j: &str, visitor: &mut dyn Visitor<E>) -> Resu
             Layer::Map(mut map) => {
                 match de.parse_whitespace() {
                     Some(b'"') => de.bump(),
-                    _ => return Err(E::unexpected()),
+                    Some(found) => {
+                        return Err(
+                            de.error(format!("expected '\"', but found `{}`", found as char))
+                        )
+                    }
+                    None => return Err(de.error("expected '\"', but found EOF")),
                 }
                 let key = de.parse_str()?;
                 let entry = map.key(key)?;
@@ -166,7 +193,7 @@ fn from_str_impl<E: VisitorError>(j: &str, visitor: &mut dyn Visitor<E>) -> Resu
                 visitor = unsafe { extend_lifetime!(next as NonNull<dyn Visitor<E>>) };
                 match de.parse_whitespace() {
                     Some(b':') => de.bump(),
-                    _ => return Err(E::unexpected()),
+                    _ => return Err(de.error("expected ':'")),
                 }
                 de.stack.push((outer, Layer::Map(map)));
             }
@@ -174,7 +201,7 @@ fn from_str_impl<E: VisitorError>(j: &str, visitor: &mut dyn Visitor<E>) -> Resu
     }
 
     match de.parse_whitespace() {
-        Some(_) => Err(E::unexpected()),
+        Some(val) => Err(de.error(format!("Expected EOF, found `{}`", val as char))),
         None => Ok(()),
     }
 }
@@ -202,7 +229,7 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
     fn next(&mut self) -> Option<u8> {
         if self.pos < self.input.len() {
             let ch = self.input[self.pos];
-            self.pos += 1;
+            self.bump();
             Some(ch)
         } else {
             None
@@ -225,8 +252,10 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
         self.peek().unwrap_or(b'\0')
     }
 
+    #[inline]
     fn bump(&mut self) {
         self.pos += 1;
+        self.ch += 1;
     }
 
     fn parse_str(&mut self) -> Result<&str, E> {
@@ -243,10 +272,10 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
 
         loop {
             while self.pos < self.input.len() && !ESCAPE[usize::from(self.input[self.pos])] {
-                self.pos += 1;
+                self.bump();
             }
             if self.pos == self.input.len() {
-                return Err(E::unexpected());
+                return Err(self.error("expected `\"` at end of string"));
             }
             match self.input[self.pos] {
                 b'"' => {
@@ -254,29 +283,34 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
                         // Fast path: return a slice of the raw JSON without any
                         // copying.
                         let borrowed = &self.input[start..self.pos];
-                        self.pos += 1;
+                        self.bump();
                         return Ok(result(borrowed));
                     } else {
                         self.buffer.extend_from_slice(&self.input[start..self.pos]);
-                        self.pos += 1;
+                        self.bump();
                         return Ok(result(&self.buffer));
                     }
                 }
                 b'\\' => {
                     self.buffer.extend_from_slice(&self.input[start..self.pos]);
-                    self.pos += 1;
+                    self.bump();
                     self.parse_escape()?;
                     start = self.pos;
                 }
-                _ => {
-                    return Err(E::unexpected());
+                found => {
+                    return Err(self.error(format!("unexpected byte `{found}`")));
                 }
             }
         }
     }
 
     fn next_or_eof(&mut self) -> Result<u8, E> {
-        self.next().ok_or(E::unexpected())
+        self.next().ok_or(E::format_error(0, 0, "unexpected EOF"))
+    }
+
+    fn bump_line(&mut self) {
+        self.line += 1;
+        self.ch = 0;
     }
 
     /// Parses a JSON escape sequence and appends it into the scratch space. Assumes
@@ -295,24 +329,24 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
             b't' => self.buffer.push(b'\t'),
             b'u' => {
                 let c = match self.decode_hex_escape()? {
-                    0xDC00..=0xDFFF => {
-                        return Err(E::unexpected());
+                    val @ 0xDC00..=0xDFFF => {
+                        return Err(self.invalid_escape_sequence(val));
                     }
 
                     // Non-BMP characters are encoded as a sequence of
                     // two hex escapes, representing UTF-16 surrogates.
                     n1 @ 0xD800..=0xDBFF => {
                         if self.next_or_eof()? != b'\\' {
-                            return Err(E::unexpected());
+                            return Err(self.invalid_escape_sequence(n1));
                         }
                         if self.next_or_eof()? != b'u' {
-                            return Err(E::unexpected());
+                            return Err(self.invalid_escape_sequence(n1));
                         }
 
                         let n2 = self.decode_hex_escape()?;
 
                         if n2 < 0xDC00 || n2 > 0xDFFF {
-                            return Err(E::unexpected());
+                            return Err(self.invalid_escape_sequence(n2));
                         }
 
                         let n = (u32::from(n1 - 0xD800) << 10 | u32::from(n2 - 0xDC00)) + 0x1_0000;
@@ -320,7 +354,7 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
                         match char::from_u32(n) {
                             Some(c) => c,
                             None => {
-                                return Err(E::unexpected());
+                                return Err(self.invalid_escape_sequence(n));
                             }
                         }
                     }
@@ -328,7 +362,7 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
                     n => match char::from_u32(u32::from(n)) {
                         Some(c) => c,
                         None => {
-                            return Err(E::unexpected());
+                            return Err(self.invalid_escape_sequence(n));
                         }
                     },
                 };
@@ -336,8 +370,8 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
                 self.buffer
                     .extend_from_slice(c.encode_utf8(&mut [0_u8; 4]).as_bytes());
             }
-            _ => {
-                return Err(E::unexpected());
+            found => {
+                return Err(self.error(format!("unexpected byte in escape sequence: `{found}`")));
             }
         }
 
@@ -355,18 +389,32 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
                 b'd' | b'D' => n * 16_u16 + 13_u16,
                 b'e' | b'E' => n * 16_u16 + 14_u16,
                 b'f' | b'F' => n * 16_u16 + 15_u16,
-                _ => {
-                    return Err(E::unexpected());
+                found => {
+                    return Err(
+                        self.error(format!("unexpected byte in escape sequence: `{found}`"))
+                    );
                 }
             };
         }
         Ok(n)
     }
 
+    fn invalid_escape_sequence(&self, seq: impl LowerHex) -> E {
+        self.error(&format!("valid escape sequence `\\u{:x}`", seq))
+    }
+
+    fn error(&self, msg: impl AsRef<str>) -> E {
+        E::format_error(self.line, self.ch, msg.as_ref())
+    }
+
     fn parse_whitespace(&mut self) -> Option<u8> {
         loop {
             match self.peek() {
-                Some(b' ') | Some(b'\n') | Some(b'\t') | Some(b'\r') => {
+                Some(b'\n') => {
+                    self.bump_line();
+                    self.bump();
+                }
+                Some(b' ') | Some(b'\t') | Some(b'\r') => {
                     self.bump();
                 }
                 other => {

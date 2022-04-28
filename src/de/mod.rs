@@ -220,6 +220,7 @@ pub trait Deserialize<E = Error>: Sized {
 
 pub trait VisitorError: 'static {
     fn unexpected() -> Self;
+    fn format_error(line: usize, pos: usize, msg: &str) -> Self;
 }
 
 /// Trait that can write data into an output place.

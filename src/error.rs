@@ -13,6 +13,10 @@ impl VisitorError for Error {
     fn unexpected() -> Self {
         Self
     }
+
+    fn format_error(_line: usize, _pos: usize, _msg: &str) -> Self {
+        Self
+    }
 }
 
 /// Result type returned by deserialization functions.
