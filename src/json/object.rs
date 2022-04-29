@@ -1,15 +1,10 @@
 use crate::json::{drop, Value};
-use crate::private;
-use crate::ser::{self, Fragment, Serialize};
-use alloc::borrow::Cow;
-use alloc::boxed::Box;
-use alloc::collections::{btree_map, BTreeMap};
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use core::iter::FromIterator;
 use core::mem::{self, ManuallyDrop};
 use core::ops::{Deref, DerefMut};
 use core::ptr;
-use core::str;
 
 /// A `BTreeMap<String, Value>` with a non-recursive drop impl.
 #[derive(Clone, Debug, Default)]
@@ -87,20 +82,5 @@ impl FromIterator<(String, Value)> for Object {
         Object {
             inner: BTreeMap::from_iter(iter),
         }
-    }
-}
-
-impl private {
-    pub fn stream_object(object: &Object) -> Fragment {
-        struct ObjectIter<'a>(btree_map::Iter<'a, String, Value>);
-
-        impl<'a> ser::Map for ObjectIter<'a> {
-            fn next(&mut self) -> Option<(Cow<str>, &dyn Serialize)> {
-                let (k, v) = self.0.next()?;
-                Some((Cow::Borrowed(k), v as &dyn Serialize))
-            }
-        }
-
-        Fragment::Map(Box::new(ObjectIter(object.iter())))
     }
 }

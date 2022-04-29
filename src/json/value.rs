@@ -1,9 +1,7 @@
 use crate::de::{Deserialize, Map, Seq, Visitor, VisitorError};
 use crate::json::{Array, Number, Object};
-use crate::private;
-use crate::ser::{Fragment, Serialize};
 use crate::Place;
-use alloc::borrow::{Cow, ToOwned};
+use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
 use alloc::string::String;
 use core::mem;
@@ -40,21 +38,6 @@ impl Default for Value {
     /// The default value is null.
     fn default() -> Self {
         Value::Null
-    }
-}
-
-impl Serialize for Value {
-    fn begin(&self) -> Fragment {
-        match self {
-            Value::Null => Fragment::Null,
-            Value::Bool(b) => Fragment::Bool(*b),
-            Value::Number(Number::U64(n)) => Fragment::U64(*n),
-            Value::Number(Number::I64(n)) => Fragment::I64(*n),
-            Value::Number(Number::F64(n)) => Fragment::F64(*n),
-            Value::String(s) => Fragment::Str(Cow::Borrowed(s)),
-            Value::Array(array) => private::stream_slice(array),
-            Value::Object(object) => private::stream_object(object),
-        }
     }
 }
 

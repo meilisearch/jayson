@@ -1,4 +1,4 @@
-use miniserde::{json, Deserialize};
+use miniserde::{de::VisitorError, json, Deserialize, Error};
 
 #[derive(Deserialize)]
 pub struct Point {
@@ -8,6 +8,6 @@ pub struct Point {
 
 #[test]
 fn main() {
-    let result = json::from_str::<Point>(r#"{"x": 1, "y": 2, "z": 3}"#);
+    let result = json::from_str::<Point, Error>(r#"{"x": 1, "y": 2, "z": 3}"#);
     assert!(result.is_ok());
 }

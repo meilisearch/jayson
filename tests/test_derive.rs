@@ -1,13 +1,13 @@
-use miniserde::{json, Deserialize, Serialize};
+use miniserde::{de::VisitorError, json, Deserialize};
 
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Deserialize)]
 enum Tag {
     A,
     #[serde(rename = "renamedB")]
     B,
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Deserialize)]
 struct Example {
     x: String,
     t1: Tag,
@@ -15,7 +15,7 @@ struct Example {
     n: Box<Nested>,
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Deserialize)]
 struct Nested {
     y: Option<Vec<String>>,
     z: Option<String>,
@@ -34,21 +34,5 @@ fn test_de() {
             z: None,
         }),
     };
-    assert_eq!(actual, expected);
-}
-
-#[test]
-fn test_ser() {
-    let example = Example {
-        x: "X".to_owned(),
-        t1: Tag::A,
-        t2: Box::new(Tag::B),
-        n: Box::new(Nested {
-            y: Some(vec!["Y".to_owned(), "Y".to_owned()]),
-            z: None,
-        }),
-    };
-    let actual = json::to_string(&example);
-    let expected = r#"{"x":"X","t1":"A","t2":"renamedB","n":{"y":["Y","Y"],"z":null}}"#;
     assert_eq!(actual, expected);
 }

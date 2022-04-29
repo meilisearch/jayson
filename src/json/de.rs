@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 use core::char;
 use core::ptr::NonNull;
 use core::str;
-use std::fmt::{Display, LowerHex};
+use std::fmt::LowerHex;
 
 /// Deserialize a JSON string into any deserializable type.
 ///

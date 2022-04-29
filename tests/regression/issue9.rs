@@ -1,7 +1,7 @@
-use miniserde::json;
+use miniserde::{json, Error};
 
 #[test]
 fn main() {
-    let result = json::from_str::<bool>(" true && false ");
+    let result = json::from_str::<bool, Error>(" true && false ");
     assert!(result.is_err());
 }

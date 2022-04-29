@@ -3,9 +3,6 @@
 //! [See the crate level doc](../index.html#example) for an example of
 //! serializing and deserializing JSON.
 
-mod ser;
-pub use self::ser::to_string;
-
 mod de;
 pub use self::de::from_str;
 
