@@ -10,6 +10,7 @@ mod attr;
 mod bound;
 mod de;
 
+use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
@@ -19,14 +20,13 @@ use syn::{
 };
 
 #[derive(Debug)]
-enum Rename {
-    Name(String),
+enum RenameAll {
     CamelCase,
 }
 
 #[derive(Default, Debug)]
 struct FieldAttrs {
-    rename: Option<Rename>,
+    rename: Option<String>,
 }
 
 impl FieldAttrs {
@@ -52,7 +52,7 @@ impl FieldAttrs {
                                                     }
                                                 };
 
-                                                this.rename.replace(Rename::Name(name));
+                                                this.rename.replace(name);
                                             }
                                             _ => {
                                                 return Err(Error::new(
@@ -114,11 +114,13 @@ impl<'a> Field<'a> {
     }
 
     /// The name of the fields, with potential applied trasformations
-    fn str_name(&self) -> String {
+    fn str_name(&self, rename_all: Option<&RenameAll>) -> String {
         match self.attrs.rename {
-            Some(Rename::CamelCase) => todo!("camel case not yet supported"),
-            Some(Rename::Name(ref name)) => name.clone(),
-            None => self.field_name.to_string(),
+            Some(ref name) => name.clone(),
+            None => match rename_all {
+                Some(RenameAll::CamelCase) => self.field_name.to_string().to_case(Case::Camel),
+                None => self.field_name.to_string(),
+            },
         }
     }
 }
@@ -126,6 +128,7 @@ impl<'a> Field<'a> {
 #[derive(Default, Debug)]
 struct StructAttrs {
     err_ty: Option<String>,
+    rename_all: Option<RenameAll>,
 }
 
 #[derive(Debug)]
@@ -161,6 +164,29 @@ impl<'a> DerivedStruct<'a> {
                                                     }
                                                 };
                                                 struct_attrs.err_ty.replace(ty);
+                                            }
+                                            "rename_all" => {
+                                                let case = match &nv.lit {
+                                                    syn::Lit::Str(v) => v.value(),
+                                                    _ => {
+                                                        return Err(Error::new(
+                                                            nv.lit.span(),
+                                                            "error should be a string literal",
+                                                        ))
+                                                    }
+                                                };
+
+                                                let rename_all = match case.as_str() {
+                                                    "CamelCase" => RenameAll::CamelCase,
+                                                    _ => {
+                                                        return Err(Error::new(
+                                                            Span::call_site(),
+                                                            "invalid rename all rule.",
+                                                        ))
+                                                    }
+                                                };
+
+                                                struct_attrs.rename_all.replace(rename_all);
                                             }
                                             _ => {
                                                 return Err(Error::new(
@@ -241,7 +267,10 @@ impl<'a> DerivedStruct<'a> {
             .iter()
             .map(|f| &f.field_name)
             .collect::<Vec<_>>();
-        let fieldstr = self.fields.iter().map(|f| f.str_name());
+        let fieldstr = self
+            .fields
+            .iter()
+            .map(|f| f.str_name(self.attrs.rename_all.as_ref()));
         let fieldty = self.fields.iter().map(|f| &f.field_ty);
 
         Ok(quote! {
@@ -338,7 +367,7 @@ impl<'a> Derived<'a> {
 pub fn derive_deserialize(input: TokenStream) -> TokenStream {
     match Derived::from_derive_input(&parse_macro_input!(input as DeriveInput)) {
         Ok(derived) => match derived {
-            Derived::Struct(s) => s.gen().unwrap().into(),
+            Derived::Struct(s) => s.gen().unwrap_or_else(|e| e.to_compile_error()).into(),
         },
         Err(e) => e.to_compile_error().into(),
     }
