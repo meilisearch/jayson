@@ -3,7 +3,7 @@
 
 extern crate test;
 
-use miniserde::{Deserialize as MiniDeserialize, Serialize as MiniSerialize};
+use miniserde::Deserialize as MiniDeserialize;
 use serde_derive::{Deserialize, Serialize};
 use test::Bencher;
 

@@ -34,7 +34,7 @@ pub use mini_internal::*;
 // 1.30.0. Keep exposing the old names for backward compatibility but remove in
 // the next major version of Miniserde.
 #[doc(hidden)]
-pub use mini_internal::{Deserialize as MiniDeserialize, Serialize as MiniSerialize};
+pub use mini_internal::Deserialize as MiniDeserialize;
 
 // Not public API.
 #[doc(hidden)]
