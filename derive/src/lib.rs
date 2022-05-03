@@ -6,9 +6,9 @@
 
 extern crate proc_macro;
 
-mod attr;
+// mod attr;
 mod bound;
-mod de;
+// mod de;
 
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
@@ -270,7 +270,8 @@ impl<'a> DerivedStruct<'a> {
         let fieldstr = self
             .fields
             .iter()
-            .map(|f| f.str_name(self.attrs.rename_all.as_ref()));
+            .map(|f| f.str_name(self.attrs.rename_all.as_ref()))
+            .collect::<Vec<_>>();
         let fieldty = self.fields.iter().map(|f| &f.field_ty);
 
         Ok(quote! {
@@ -317,7 +318,7 @@ impl<'a> DerivedStruct<'a> {
 
                     fn finish(&mut self) -> Result<(), #err_ty> {
                         #(
-                            let #fieldname = self.#fieldname.take().ok_or(#err_ty::unexpected())?;
+                            let #fieldname = self.#fieldname.take().ok_or(#err_ty::missing_field(#fieldstr))?;
                         )*
                         *self.__out = miniserde::__private::Some(#ident {
                             #(
