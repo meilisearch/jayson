@@ -8,15 +8,18 @@ extern crate proc_macro;
 
 // mod attr;
 mod bound;
+mod derive_enum;
+mod derive_struct;
 // mod de;
 
 use convert_case::{Case, Casing};
+use derive_enum::DerivedEnum;
+use derive_struct::DerivedStruct;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use quote::quote;
 use syn::{
-    parse_macro_input, parse_quote, spanned::Spanned, Attribute, Data, DataStruct, DeriveInput,
-    Error, Fields, FieldsNamed, Meta, MetaList,
+    parse_macro_input, spanned::Spanned, Attribute, Data, DataStruct, DeriveInput, Error, Fields,
+    Meta, MetaList,
 };
 
 #[derive(Debug)]
@@ -131,17 +134,8 @@ struct StructAttrs {
     rename_all: Option<RenameAll>,
 }
 
-#[derive(Debug)]
-struct DerivedStruct<'a> {
-    name: &'a syn::Ident,
-    fields: Vec<Field<'a>>,
-    attrs: StructAttrs,
-
-    generics: &'a syn::Generics,
-}
-
-impl<'a> DerivedStruct<'a> {
-    fn parse_stuct_attrs(attrs: &[Attribute]) -> syn::Result<StructAttrs> {
+impl StructAttrs {
+    fn parse(attrs: &[Attribute]) -> syn::Result<Self> {
         let mut struct_attrs = StructAttrs::default();
 
         for attr in attrs.iter() {
@@ -180,8 +174,8 @@ impl<'a> DerivedStruct<'a> {
                                                     "CamelCase" => RenameAll::CamelCase,
                                                     _ => {
                                                         return Err(Error::new(
-                                                            Span::call_site(),
-                                                            "invalid rename all rule.",
+                                                            nv.lit.span(),
+                                                            "invalid rename all rule. Valid rename rules are: CamelCase",
                                                         ))
                                                     }
                                                 };
@@ -215,133 +209,20 @@ impl<'a> DerivedStruct<'a> {
         }
         Ok(struct_attrs)
     }
-
-    fn parse_fields(fields: &FieldsNamed) -> syn::Result<Vec<Field>> {
-        let mut out_fields = Vec::new();
-        for field in fields.named.iter() {
-            let field = Field::parse(field)?;
-
-            out_fields.push(field);
-        }
-
-        Ok(out_fields)
-    }
-
-    fn parse(input: &'a DeriveInput, fields: &'a FieldsNamed) -> syn::Result<Self> {
-        let attrs = Self::parse_stuct_attrs(&input.attrs)?;
-        let fields = Self::parse_fields(fields)?;
-        let name = &input.ident;
-        let generics = &input.generics;
-
-        Ok(dbg!(Self {
-            fields,
-            attrs,
-            name,
-            generics,
-        }))
-    }
-
-    fn gen(&self) -> syn::Result<proc_macro2::TokenStream> {
-        let dummy = syn::Ident::new(
-            &format!("_IMPL_MINIDESERIALIZE_FOR_{}", self.name),
-            Span::call_site(),
-        );
-
-        let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
-
-        let ident = self.name;
-
-        let err_ty: syn::Type =
-            syn::parse_str(self.attrs.err_ty.as_ref().ok_or_else(|| {
-                Error::new(Span::call_site(), "Missing ascociasted error type.")
-            })?)?;
-
-        let bound = parse_quote!(miniserde::Deserialize);
-        let bounded_where_clause = bound::where_clause_with_bound(&self.generics, bound);
-
-        let wrapper_generics = bound::with_lifetime_bound(&self.generics, "'__a");
-        let (wrapper_impl_generics, wrapper_ty_generics, _) = wrapper_generics.split_for_impl();
-
-        let fieldname = self
-            .fields
-            .iter()
-            .map(|f| &f.field_name)
-            .collect::<Vec<_>>();
-        let fieldstr = self
-            .fields
-            .iter()
-            .map(|f| f.str_name(self.attrs.rename_all.as_ref()))
-            .collect::<Vec<_>>();
-        let fieldty = self.fields.iter().map(|f| &f.field_ty);
-
-        Ok(quote! {
-            #[allow(non_upper_case_globals)]
-            const #dummy: () = {
-                #[repr(C)]
-                struct __Visitor #impl_generics #where_clause {
-                    __out: miniserde::__private::Option<#ident #ty_generics>,
-                }
-
-                impl #impl_generics miniserde::Deserialize<#err_ty> for #ident #ty_generics #bounded_where_clause {
-                    fn begin(__out: &mut miniserde::__private::Option<Self>) -> &mut dyn miniserde::de::Visitor<#err_ty> {
-                        unsafe {
-                            &mut *{
-                                __out
-                                as *mut miniserde::__private::Option<Self>
-                                as *mut __Visitor #ty_generics
-                            }
-                        }
-                    }
-                }
-
-                impl #impl_generics miniserde::de::Visitor<#err_ty> for __Visitor #ty_generics #bounded_where_clause {
-                    fn map(&mut self) -> Result<miniserde::__private::Box<dyn miniserde::de::Map<#err_ty> + '_>, #err_ty> {
-
-                        Ok(miniserde::__private::Box::new(__State {
-                            #(
-                                #fieldname: miniserde::Deserialize::<#err_ty>::default(),
-                            )*
-                            __out: &mut self.__out,
-                        }))
-                    }
-                }
-
-                impl #wrapper_impl_generics miniserde::de::Map<#err_ty> for __State #wrapper_ty_generics #bounded_where_clause {
-                    fn key(&mut self, __k: &miniserde::__private::str) -> Result<&mut dyn ::miniserde::de::Visitor<#err_ty>, #err_ty> {
-                        match __k {
-                            #(
-                                #fieldstr => miniserde::__private::Ok(miniserde::Deserialize::begin(&mut self.#fieldname)),
-                            )*
-                            _ => miniserde::__private::Ok(<dyn miniserde::de::Visitor<#err_ty>>::ignore()),
-                        }
-                    }
-
-                    fn finish(&mut self) -> Result<(), #err_ty> {
-                        #(
-                            let #fieldname = self.#fieldname.take().ok_or(#err_ty::missing_field(#fieldstr))?;
-                        )*
-                        *self.__out = miniserde::__private::Some(#ident {
-                            #(
-                                #fieldname,
-                            )*
-                        });
-                        miniserde::__private::Ok(())
-                    }
-                }
-
-                struct __State #wrapper_impl_generics #where_clause {
-                    #(
-                        #fieldname: miniserde::__private::Option<#fieldty>,
-                    )*
-                    __out: &'__a mut miniserde::__private::Option<#ident #ty_generics>,
-                }
-            };
-        })
-    }
 }
 
 enum Derived<'a> {
     Struct(DerivedStruct<'a>),
+    Enum(DerivedEnum<'a>),
+}
+
+impl<'a> Derived<'a> {
+    fn gen(&self) -> syn::Result<proc_macro2::TokenStream> {
+        match self {
+            Derived::Struct(s) => s.gen(),
+            Derived::Enum(_) => todo!(),
+        }
+    }
 }
 
 impl<'a> Derived<'a> {
@@ -367,9 +248,10 @@ impl<'a> Derived<'a> {
 #[proc_macro_derive(Deserialize, attributes(serde))]
 pub fn derive_deserialize(input: TokenStream) -> TokenStream {
     match Derived::from_derive_input(&parse_macro_input!(input as DeriveInput)) {
-        Ok(derived) => match derived {
-            Derived::Struct(s) => s.gen().unwrap_or_else(|e| e.to_compile_error()).into(),
-        },
+        Ok(derived) => derived
+            .gen()
+            .unwrap_or_else(|e| e.to_compile_error())
+            .into(),
         Err(e) => e.to_compile_error().into(),
     }
 }
