@@ -24,7 +24,14 @@ enum Variant<'a> {
 impl<'a> Variant<'a> {
     fn gen(&self, enum_ident: &Ident, err_ty: &Type) -> syn::Result<TokenStream> {
         match self {
-            Variant::Unit { .. } => todo!(),
+            Variant::Unit { name } => {
+                let name_str = Lit::Str(LitStr::new(&name.to_string(), Span::call_site()));
+                Ok(quote! {
+                    #name_str => {
+                        self.__out.replace(#enum_ident::#name);
+                    }
+                })
+            }
             Variant::Named { name, fields } => {
                 let name_str = Lit::Str(LitStr::new(&name.to_string(), Span::call_site()));
                 let field_impls = fields.iter().map(|f| {
