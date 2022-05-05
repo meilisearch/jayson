@@ -1,6 +1,6 @@
-use miniserde::Deserialize;
+use jayson::Jayson;
 
-#[derive(Deserialize)]
+#[derive(Jayson)]
 union Union {
     x: i32,
 }

@@ -1,4 +1,4 @@
-use miniserde::Serialize;
+use jayson::Serialize;
 
 #[derive(Serialize)]
 struct Struct {

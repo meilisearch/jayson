@@ -1,4 +1,4 @@
-use miniserde::Deserialize;
+use jayson::Deserialize;
 
 #[derive(Deserialize)]
 struct UnitStruct;

@@ -42,7 +42,7 @@ impl<'a> DerivedStruct<'a> {
                 Error::new(Span::call_site(), "Missing ascociasted error type.")
             })?)?;
 
-        let bound = parse_quote!(miniserde::Deserialize);
+        let bound = parse_quote!(jayson::Deserialize);
         let bounded_where_clause = bound::where_clause_with_bound(&self.generics, bound);
 
         let wrapper_generics = bound::with_lifetime_bound(&self.generics, "'__a");
@@ -65,40 +65,40 @@ impl<'a> DerivedStruct<'a> {
             const #dummy: () = {
                 #[repr(C)]
                 struct __Visitor #impl_generics #where_clause {
-                    __out: miniserde::__private::Option<#ident #ty_generics>,
+                    __out: jayson::__private::Option<#ident #ty_generics>,
                 }
 
-                impl #impl_generics miniserde::Deserialize<#err_ty> for #ident #ty_generics #bounded_where_clause {
-                    fn begin(__out: &mut miniserde::__private::Option<Self>) -> &mut dyn miniserde::de::Visitor<#err_ty> {
+                impl #impl_generics jayson::Jayson<#err_ty> for #ident #ty_generics #bounded_where_clause {
+                    fn begin(__out: &mut jayson::__private::Option<Self>) -> &mut dyn jayson::de::Visitor<#err_ty> {
                         unsafe {
                             &mut *{
                                 __out
-                                as *mut miniserde::__private::Option<Self>
+                                as *mut jayson::__private::Option<Self>
                                 as *mut __Visitor #ty_generics
                             }
                         }
                     }
                 }
 
-                impl #impl_generics miniserde::de::Visitor<#err_ty> for __Visitor #ty_generics #bounded_where_clause {
-                    fn map(&mut self) -> Result<miniserde::__private::Box<dyn miniserde::de::Map<#err_ty> + '_>, #err_ty> {
+                impl #impl_generics jayson::de::Visitor<#err_ty> for __Visitor #ty_generics #bounded_where_clause {
+                    fn map(&mut self) -> Result<jayson::__private::Box<dyn jayson::de::Map<#err_ty> + '_>, #err_ty> {
 
-                        Ok(miniserde::__private::Box::new(__State {
+                        Ok(jayson::__private::Box::new(__State {
                             #(
-                                #fieldname: miniserde::Deserialize::<#err_ty>::default(),
+                                #fieldname: jayson::Jayson::<#err_ty>::default(),
                             )*
                             __out: &mut self.__out,
                         }))
                     }
                 }
 
-                impl #wrapper_impl_generics miniserde::de::Map<#err_ty> for __State #wrapper_ty_generics #bounded_where_clause {
-                    fn key(&mut self, __k: &miniserde::__private::str) -> Result<&mut dyn ::miniserde::de::Visitor<#err_ty>, #err_ty> {
+                impl #wrapper_impl_generics jayson::de::Map<#err_ty> for __State #wrapper_ty_generics #bounded_where_clause {
+                    fn key(&mut self, __k: &jayson::__private::str) -> Result<&mut dyn ::jayson::de::Visitor<#err_ty>, #err_ty> {
                         match __k {
                             #(
-                                #fieldstr => miniserde::__private::Ok(miniserde::Deserialize::begin(&mut self.#fieldname)),
+                                #fieldstr => jayson::__private::Ok(jayson::Jayson::begin(&mut self.#fieldname)),
                             )*
-                            _ => miniserde::__private::Ok(<dyn miniserde::de::Visitor<#err_ty>>::ignore()),
+                            _ => jayson::__private::Ok(<dyn jayson::de::Visitor<#err_ty>>::ignore()),
                         }
                     }
 
@@ -106,20 +106,20 @@ impl<'a> DerivedStruct<'a> {
                         #(
                             let #fieldname = self.#fieldname.take().ok_or(#err_ty::missing_field(#fieldstr))?;
                         )*
-                        *self.__out = miniserde::__private::Some(#ident {
+                        *self.__out = jayson::__private::Some(#ident {
                             #(
                                 #fieldname,
                             )*
                         });
-                        miniserde::__private::Ok(())
+                        jayson::__private::Ok(())
                     }
                 }
 
                 struct __State #wrapper_impl_generics #where_clause {
                     #(
-                        #fieldname: miniserde::__private::Option<#fieldty>,
+                        #fieldname: jayson::__private::Option<#fieldty>,
                     )*
-                    __out: &'__a mut miniserde::__private::Option<#ident #ty_generics>,
+                    __out: &'__a mut jayson::__private::Option<#ident #ty_generics>,
                 }
             };
         })

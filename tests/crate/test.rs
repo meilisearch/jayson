@@ -1,3 +1,3 @@
 #![no_std]
 
-pub use miniserde::*;
+pub use jayson::*;

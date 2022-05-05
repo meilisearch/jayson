@@ -7,12 +7,12 @@ use alloc::boxed::Box;
 /// Trait for data structures that can be deserialized from a JSON string.
 ///
 /// [Refer to the module documentation for examples.][crate::de]
-pub trait Deserialize<E = Error>: Sized {
+pub trait Jayson<E = Error>: Sized {
     /// The only correct implementation of this method is:
     ///
     /// ```rust
-    /// # use miniserde::make_place;
-    /// # use miniserde::de::{Deserialize, Visitor};
+    /// # use jayson::make_place;
+    /// # use jayson::de::{Deserialize, Visitor};
     /// #
     /// # make_place!(Place);
     /// # struct S;

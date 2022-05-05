@@ -35,11 +35,11 @@ pub trait VisitorError: 'static {
 
 ### Implementing deserialize for a custom type
 ```rust
-miniserde::make_place!(Place);
+jayson::make_place!(Place);
 
 struct Name(String);
 
-impl Deserialize<MyError> for Name {
+impl Jayson<MyError> for Name {
     fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<MyError> {
         impl Visitor<MyError> for Place<Name> {
             fn string(&mut self, s: &str) -> Result<(), MyError> {
@@ -60,8 +60,8 @@ impl Deserialize<MyError> for Name {
 ### Using macros
 
 ```rust
-#[derive(Deserialize)]
-#[serde(error = "MyError")]
+#[derive(Jayson)]
+#[jayson(error = "MyError")]
 struct User {
 	name: Name,
 }

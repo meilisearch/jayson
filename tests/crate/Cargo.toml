@@ -1,5 +1,5 @@
 [package]
-name = "miniserde_test"
+name = "jayson_test"
 version = "0.0.0"
 edition = "2018"
 publish = false
@@ -8,8 +8,8 @@ publish = false
 path = "test.rs"
 
 [dependencies]
-miniserde = { path = "../..", default-features = false }
+jayson = { path = "../..", default-features = false }
 
 [features]
 default = ["std"]
-std = ["miniserde/std"]
+std = ["jayson/std"]

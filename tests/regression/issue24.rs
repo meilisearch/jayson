@@ -1,6 +1,7 @@
-use miniserde::{de::VisitorError, json, Deserialize, Error};
+use jayson::{de::VisitorError, json, Error, Jayson};
 
-#[derive(Deserialize)]
+#[derive(Jayson)]
+#[jayson(error = "Error")]
 pub struct Point {
     pub x: u32,
     pub y: u32,

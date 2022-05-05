@@ -1,4 +1,4 @@
-use crate::de::{Deserialize, Map, Seq, Visitor};
+use crate::de::{Jayson, Map, Seq, Visitor};
 use crate::ignore::Ignore;
 use crate::ptr::NonuniqueBox;
 use crate::Place;
@@ -16,7 +16,7 @@ use std::hash::{BuildHasher, Hash};
 
 use super::VisitorError;
 
-impl<E: VisitorError> Deserialize<E> for () {
+impl<E: VisitorError> Jayson<E> for () {
     fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
         impl<E: VisitorError> Visitor<E> for Place<()> {
             fn null(&mut self) -> Result<(), E> {
@@ -28,7 +28,7 @@ impl<E: VisitorError> Deserialize<E> for () {
     }
 }
 
-impl<E: VisitorError> Deserialize<E> for bool {
+impl<E: VisitorError> Jayson<E> for bool {
     fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
         impl<E: VisitorError> Visitor<E> for Place<bool> {
             fn boolean(&mut self, b: bool) -> Result<(), E> {
@@ -40,7 +40,7 @@ impl<E: VisitorError> Deserialize<E> for bool {
     }
 }
 
-impl<E: VisitorError> Deserialize<E> for String {
+impl<E: VisitorError> Jayson<E> for String {
     fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
         impl<E: VisitorError> Visitor<E> for Place<String> {
             fn string(&mut self, s: &str) -> Result<(), E> {
@@ -54,7 +54,7 @@ impl<E: VisitorError> Deserialize<E> for String {
 
 macro_rules! signed {
     ($ty:ident) => {
-        impl<E> Deserialize<E> for $ty
+        impl<E> Jayson<E> for $ty
         where
             E: VisitorError,
         {
@@ -91,7 +91,7 @@ signed!(isize);
 
 macro_rules! unsigned {
     ($ty:ident) => {
-        impl<E> Deserialize<E> for $ty
+        impl<E> Jayson<E> for $ty
         where
             E: VisitorError,
         {
@@ -119,7 +119,7 @@ unsigned!(usize);
 
 macro_rules! float {
     ($ty:ident) => {
-        impl<E: VisitorError> Deserialize<E> for $ty {
+        impl<E: VisitorError> Jayson<E> for $ty {
             fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
                 impl<E: VisitorError> Visitor<E> for Place<$ty> {
                     fn negative(&mut self, n: i64) -> Result<(), E> {
@@ -145,47 +145,47 @@ macro_rules! float {
 float!(f32);
 float!(f64);
 
-impl<E: VisitorError, T: Deserialize<E>> Deserialize<E> for Box<T> {
+impl<E: VisitorError, T: Jayson<E>> Jayson<E> for Box<T> {
     fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
-        impl<E: VisitorError, T: Deserialize<E>> Visitor<E> for Place<Box<T>> {
+        impl<E: VisitorError, T: Jayson<E>> Visitor<E> for Place<Box<T>> {
             fn null(&mut self) -> Result<(), E> {
                 let mut out = None;
-                Deserialize::begin(&mut out).null()?;
+                Jayson::begin(&mut out).null()?;
                 self.out = Some(Box::new(out.unwrap()));
                 Ok(())
             }
 
             fn boolean(&mut self, b: bool) -> Result<(), E> {
                 let mut out = None;
-                Deserialize::begin(&mut out).boolean(b)?;
+                Jayson::begin(&mut out).boolean(b)?;
                 self.out = Some(Box::new(out.unwrap()));
                 Ok(())
             }
 
             fn string(&mut self, s: &str) -> Result<(), E> {
                 let mut out = None;
-                Deserialize::begin(&mut out).string(s)?;
+                Jayson::begin(&mut out).string(s)?;
                 self.out = Some(Box::new(out.unwrap()));
                 Ok(())
             }
 
             fn negative(&mut self, n: i64) -> Result<(), E> {
                 let mut out = None;
-                Deserialize::begin(&mut out).negative(n)?;
+                Jayson::begin(&mut out).negative(n)?;
                 self.out = Some(Box::new(out.unwrap()));
                 Ok(())
             }
 
             fn nonnegative(&mut self, n: u64) -> Result<(), E> {
                 let mut out = None;
-                Deserialize::begin(&mut out).nonnegative(n)?;
+                Jayson::begin(&mut out).nonnegative(n)?;
                 self.out = Some(Box::new(out.unwrap()));
                 Ok(())
             }
 
             fn float(&mut self, n: f64) -> Result<(), E> {
                 let mut out = None;
-                Deserialize::begin(&mut out).float(n)?;
+                Jayson::begin(&mut out).float(n)?;
                 self.out = Some(Box::new(out.unwrap()));
                 Ok(())
             }
@@ -196,7 +196,7 @@ impl<E: VisitorError, T: Deserialize<E>> Deserialize<E> for Box<T> {
                 Ok(Box::new(BoxSeq {
                     out: &mut self.out,
                     value,
-                    seq: ManuallyDrop::new(Deserialize::begin(ptr).seq()?),
+                    seq: ManuallyDrop::new(Jayson::begin(ptr).seq()?),
                 }))
             }
 
@@ -206,7 +206,7 @@ impl<E: VisitorError, T: Deserialize<E>> Deserialize<E> for Box<T> {
                 Ok(Box::new(BoxMap {
                     out: &mut self.out,
                     value,
-                    map: ManuallyDrop::new(Deserialize::begin(ptr).map()?),
+                    map: ManuallyDrop::new(Jayson::begin(ptr).map()?),
                 }))
             }
         }
@@ -224,7 +224,7 @@ impl<E: VisitorError, T: Deserialize<E>> Deserialize<E> for Box<T> {
             }
         }
 
-        impl<'a, E: VisitorError, T: Deserialize<E>> Seq<E> for BoxSeq<'a, E, T> {
+        impl<'a, E: VisitorError, T: Jayson<E>> Seq<E> for BoxSeq<'a, E, T> {
             fn element(&mut self) -> Result<&mut dyn Visitor<E>, E> {
                 self.seq.element()
             }
@@ -250,7 +250,7 @@ impl<E: VisitorError, T: Deserialize<E>> Deserialize<E> for Box<T> {
             }
         }
 
-        impl<'a, E: VisitorError, T: Deserialize<E>> Map<E> for BoxMap<'a, E, T> {
+        impl<'a, E: VisitorError, T: Jayson<E>> Map<E> for BoxMap<'a, E, T> {
             fn key(&mut self, k: &str) -> Result<&mut dyn Visitor<E>, E> {
                 self.map.key(k)
             }
@@ -267,13 +267,13 @@ impl<E: VisitorError, T: Deserialize<E>> Deserialize<E> for Box<T> {
     }
 }
 
-impl<E: VisitorError, T: Deserialize<E>> Deserialize<E> for Option<T> {
+impl<E: VisitorError, T: Jayson<E>> Jayson<E> for Option<T> {
     #[inline]
     fn default() -> Option<Self> {
         Some(None)
     }
     fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
-        impl<E: VisitorError, T: Deserialize<E>> Visitor<E> for Place<Option<T>> {
+        impl<E: VisitorError, T: Jayson<E>> Visitor<E> for Place<Option<T>> {
             fn null(&mut self) -> Result<(), E> {
                 self.out = Some(None);
                 Ok(())
@@ -281,37 +281,37 @@ impl<E: VisitorError, T: Deserialize<E>> Deserialize<E> for Option<T> {
 
             fn boolean(&mut self, b: bool) -> Result<(), E> {
                 self.out = Some(None);
-                Deserialize::begin(self.out.as_mut().unwrap()).boolean(b)
+                Jayson::begin(self.out.as_mut().unwrap()).boolean(b)
             }
 
             fn string(&mut self, s: &str) -> Result<(), E> {
                 self.out = Some(None);
-                Deserialize::begin(self.out.as_mut().unwrap()).string(s)
+                Jayson::begin(self.out.as_mut().unwrap()).string(s)
             }
 
             fn negative(&mut self, n: i64) -> Result<(), E> {
                 self.out = Some(None);
-                Deserialize::begin(self.out.as_mut().unwrap()).negative(n)
+                Jayson::begin(self.out.as_mut().unwrap()).negative(n)
             }
 
             fn nonnegative(&mut self, n: u64) -> Result<(), E> {
                 self.out = Some(None);
-                Deserialize::begin(self.out.as_mut().unwrap()).nonnegative(n)
+                Jayson::begin(self.out.as_mut().unwrap()).nonnegative(n)
             }
 
             fn float(&mut self, n: f64) -> Result<(), E> {
                 self.out = Some(None);
-                Deserialize::begin(self.out.as_mut().unwrap()).float(n)
+                Jayson::begin(self.out.as_mut().unwrap()).float(n)
             }
 
             fn seq(&mut self) -> Result<Box<dyn Seq<E> + '_>, E> {
                 self.out = Some(None);
-                Deserialize::begin(self.out.as_mut().unwrap()).seq()
+                Jayson::begin(self.out.as_mut().unwrap()).seq()
             }
 
             fn map(&mut self) -> Result<Box<dyn Map<E> + '_>, E> {
                 self.out = Some(None);
-                Deserialize::begin(self.out.as_mut().unwrap()).map()
+                Jayson::begin(self.out.as_mut().unwrap()).map()
             }
         }
 
@@ -319,14 +319,14 @@ impl<E: VisitorError, T: Deserialize<E>> Deserialize<E> for Option<T> {
     }
 }
 
-impl<E, A, B> Deserialize<E> for (A, B)
+impl<E, A, B> Jayson<E> for (A, B)
 where
     E: VisitorError,
-    A: Deserialize<E>,
-    B: Deserialize<E>,
+    A: Jayson<E>,
+    B: Jayson<E>,
 {
     fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
-        impl<E: VisitorError, A: Deserialize<E>, B: Deserialize<E>> Visitor<E> for Place<(A, B)> {
+        impl<E: VisitorError, A: Jayson<E>, B: Jayson<E>> Visitor<E> for Place<(A, B)> {
             fn seq(&mut self) -> Result<Box<dyn Seq<E> + '_>, E> {
                 Ok(Box::new(TupleBuilder {
                     out: &mut self.out,
@@ -343,14 +343,14 @@ where
         impl<'a, E, A, B> Seq<E> for TupleBuilder<'a, A, B>
         where
             E: VisitorError,
-            A: Deserialize<E>,
-            B: Deserialize<E>,
+            A: Jayson<E>,
+            B: Jayson<E>,
         {
             fn element(&mut self) -> Result<&mut dyn Visitor<E>, E> {
                 if self.tuple.0.is_none() {
-                    Ok(Deserialize::begin(&mut self.tuple.0))
+                    Ok(Jayson::begin(&mut self.tuple.0))
                 } else if self.tuple.1.is_none() {
-                    Ok(Deserialize::begin(&mut self.tuple.1))
+                    Ok(Jayson::begin(&mut self.tuple.1))
                 } else {
                     Err(E::unexpected("tuple has more than 2 items."))
                 }
@@ -370,9 +370,9 @@ where
     }
 }
 
-impl<E: VisitorError, T: Deserialize<E>> Deserialize<E> for Vec<T> {
+impl<E: VisitorError, T: Jayson<E>> Jayson<E> for Vec<T> {
     fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
-        impl<E: VisitorError, T: Deserialize<E>> Visitor<E> for Place<Vec<T>> {
+        impl<E: VisitorError, T: Jayson<E>> Visitor<E> for Place<Vec<T>> {
             fn seq(&mut self) -> Result<Box<dyn Seq<E> + '_>, E> {
                 Ok(Box::new(VecBuilder {
                     out: &mut self.out,
@@ -396,10 +396,10 @@ impl<E: VisitorError, T: Deserialize<E>> Deserialize<E> for Vec<T> {
             }
         }
 
-        impl<'a, E, T: Deserialize<E>> Seq<E> for VecBuilder<'a, T> {
+        impl<'a, E, T: Jayson<E>> Seq<E> for VecBuilder<'a, T> {
             fn element(&mut self) -> Result<&mut dyn Visitor<E>, E> {
                 self.shift();
-                Ok(Deserialize::begin(&mut self.element))
+                Ok(Jayson::begin(&mut self.element))
             }
 
             fn finish(&mut self) -> Result<(), E> {
@@ -414,10 +414,10 @@ impl<E: VisitorError, T: Deserialize<E>> Deserialize<E> for Vec<T> {
 }
 
 #[cfg(feature = "std")]
-impl<E, K, V, H> Deserialize<E> for HashMap<K, V, H>
+impl<E, K, V, H> Jayson<E> for HashMap<K, V, H>
 where
     K: FromStr + Hash + Eq,
-    V: Deserialize<E>,
+    V: Jayson<E>,
     H: BuildHasher + Default,
     E: VisitorError,
 {
@@ -425,7 +425,7 @@ where
         impl<E, K, V, H> Visitor<E> for Place<HashMap<K, V, H>>
         where
             K: FromStr + Hash + Eq,
-            V: Deserialize<E>,
+            V: Jayson<E>,
             H: BuildHasher + Default,
             E: VisitorError,
         {
@@ -457,7 +457,7 @@ where
         impl<'a, E, K, V, H> Map<E> for MapBuilder<'a, K, V, H>
         where
             K: FromStr + Hash + Eq,
-            V: Deserialize<E>,
+            V: Jayson<E>,
             H: BuildHasher + Default,
             E: VisitorError,
         {
@@ -467,7 +467,7 @@ where
                     Ok(key) => key,
                     Err(_) => return Err(E::unexpected(&format!("can not parse map key `{k}`"))),
                 });
-                Ok(Deserialize::begin(&mut self.value))
+                Ok(Jayson::begin(&mut self.value))
             }
 
             fn finish(&mut self) -> Result<(), E> {
@@ -482,12 +482,12 @@ where
     }
 }
 
-impl<E: VisitorError, K: FromStr + Ord, V: Deserialize<E>> Deserialize<E> for BTreeMap<K, V> {
+impl<E: VisitorError, K: FromStr + Ord, V: Jayson<E>> Jayson<E> for BTreeMap<K, V> {
     fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
         impl<E, K, V> Visitor<E> for Place<BTreeMap<K, V>>
         where
             K: FromStr + Ord,
-            V: Deserialize<E>,
+            V: Jayson<E>,
             E: VisitorError,
         {
             fn map(&mut self) -> Result<Box<dyn Map<E> + '_>, E> {
@@ -519,7 +519,7 @@ impl<E: VisitorError, K: FromStr + Ord, V: Deserialize<E>> Deserialize<E> for BT
         where
             E: VisitorError,
             K: FromStr + Ord,
-            V: Deserialize<E>,
+            V: Jayson<E>,
         {
             fn key(&mut self, k: &str) -> Result<&mut dyn Visitor<E>, E> {
                 self.shift();
@@ -527,7 +527,7 @@ impl<E: VisitorError, K: FromStr + Ord, V: Deserialize<E>> Deserialize<E> for BT
                     Ok(key) => key,
                     Err(_) => return Err(E::unexpected(&format!("can not parse map key `{k}`"))),
                 });
-                Ok(Deserialize::begin(&mut self.value))
+                Ok(Jayson::begin(&mut self.value))
             }
 
             fn finish(&mut self) -> Result<(), E> {

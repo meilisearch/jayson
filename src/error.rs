@@ -4,7 +4,7 @@ use crate::de::VisitorError;
 
 /// Error type when deserialization fails.
 ///
-/// Miniserde errors contain no information about what went wrong. **If you need
+/// jayson errors contain no information about what went wrong. **If you need
 /// more than no information, use Serde.**
 #[derive(Copy, Clone, Debug)]
 pub struct Error;
@@ -28,7 +28,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 impl Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("miniserde error")
+        formatter.write_str("jayson error")
     }
 }
 

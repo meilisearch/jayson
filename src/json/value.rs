@@ -1,4 +1,4 @@
-use crate::de::{Deserialize, Map, Seq, Visitor, VisitorError};
+use crate::de::{Jayson, Map, Seq, Visitor, VisitorError};
 use crate::json::{Array, Number, Object};
 use crate::Place;
 use alloc::borrow::ToOwned;
@@ -13,7 +13,7 @@ use core::str;
 /// arbitrarily deeply nested instances.
 ///
 /// ```rust
-/// use miniserde::json::{Array, Value};
+/// use jayson::json::{Array, Value};
 ///
 /// let mut value = Value::Null;
 #[cfg_attr(not(miri), doc = "for _ in 0..100000 {")]
@@ -116,7 +116,7 @@ impl<'a> ArrayBuilder<'a> {
 impl<'a, E: VisitorError> Seq<E> for ArrayBuilder<'a> {
     fn element(&mut self) -> Result<&mut dyn Visitor<E>, E> {
         self.shift();
-        Ok(Deserialize::begin(&mut self.element))
+        Ok(Jayson::begin(&mut self.element))
     }
 
     fn finish(&mut self) -> Result<(), E> {
@@ -145,7 +145,7 @@ impl<'a, E: VisitorError> Map<E> for ObjectBuilder<'a> {
     fn key(&mut self, k: &str) -> Result<&mut dyn Visitor<E>, E> {
         self.shift();
         self.key = Some(k.to_owned());
-        Ok(Deserialize::begin(&mut self.value))
+        Ok(Jayson::begin(&mut self.value))
     }
 
     fn finish(&mut self) -> Result<(), E> {
@@ -154,7 +154,7 @@ impl<'a, E: VisitorError> Map<E> for ObjectBuilder<'a> {
         Ok(())
     }
 }
-impl<E: VisitorError> Deserialize<E> for Value {
+impl<E: VisitorError> Jayson<E> for Value {
     fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
         Place::new(out)
     }

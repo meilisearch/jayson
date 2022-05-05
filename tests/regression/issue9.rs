@@ -1,4 +1,4 @@
-use miniserde::{json, Error};
+use jayson::{json, Error};
 
 #[test]
 fn main() {

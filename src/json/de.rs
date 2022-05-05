@@ -1,5 +1,5 @@
 use self::Event::*;
-use crate::de::{Deserialize, Map, Seq, Visitor, VisitorError};
+use crate::de::{Jayson, Map, Seq, Visitor, VisitorError};
 use crate::ptr::NonuniqueBox;
 use alloc::vec::Vec;
 use core::char;
@@ -10,7 +10,7 @@ use std::fmt::LowerHex;
 /// Deserialize a JSON string into any deserializable type.
 ///
 /// ```rust
-/// use miniserde::{json, Deserialize};
+/// use jayson::{json, Deserialize};
 ///
 /// #[derive(Deserialize, Debug)]
 /// struct Example {
@@ -18,7 +18,7 @@ use std::fmt::LowerHex;
 ///     message: String,
 /// }
 ///
-/// fn main() -> miniserde::Result<()> {
+/// fn main() -> jayson::Result<()> {
 ///     let j = r#" {"code": 200, "message": "reminiscent of Serde"} "#;
 ///
 ///     let out: Example = json::from_str(&j)?;
@@ -27,7 +27,7 @@ use std::fmt::LowerHex;
 ///     Ok(())
 /// }
 /// ```
-pub fn from_str<T: Deserialize<E>, E: VisitorError>(j: &str) -> Result<T, E> {
+pub fn from_str<T: Jayson<E>, E: VisitorError>(j: &str) -> Result<T, E> {
     let mut out = None;
     from_str_impl(j, T::begin(&mut out))?;
     out.ok_or(E::unexpected("Failed to deserialize"))

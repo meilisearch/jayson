@@ -1,13 +1,15 @@
-use miniserde::{de::VisitorError, json, Deserialize};
+use jayson::{de::VisitorError, json, Error, Jayson};
 
-#[derive(PartialEq, Debug, Deserialize)]
+#[derive(PartialEq, Debug, Jayson)]
+#[jayson(error = "Error")]
 enum Tag {
     A,
-    #[serde(rename = "renamedB")]
+    #[jayson(rename = "renamedB")]
     B,
 }
 
-#[derive(PartialEq, Debug, Deserialize)]
+#[derive(PartialEq, Debug, Jayson)]
+#[jayson(error = "Error")]
 struct Example {
     x: String,
     t1: Tag,
@@ -15,7 +17,8 @@ struct Example {
     n: Box<Nested>,
 }
 
-#[derive(PartialEq, Debug, Deserialize)]
+#[derive(PartialEq, Debug, Jayson)]
+#[jayson(error = "Error")]
 struct Nested {
     y: Option<Vec<String>>,
     z: Option<String>,

@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/miniserde/0.1.24")]
+#![doc(html_root_url = "https://docs.rs/jayson/0.1.24")]
 #![allow(
     clippy::needless_doctest_main,
     clippy::vec_init_then_push,
@@ -28,13 +28,13 @@
 extern crate alloc;
 
 #[doc(hidden)]
-pub use mini_internal::*;
+pub use jayson_internal::*;
 
 // These derives were renamed from MiniTrait -> Trait with the release of Rust
 // 1.30.0. Keep exposing the old names for backward compatibility but remove in
-// the next major version of Miniserde.
+// the next major version of jayson.
 #[doc(hidden)]
-pub use mini_internal::Deserialize as MiniDeserialize;
+pub use jayson_internal::Jayson;
 
 // Not public API.
 #[doc(hidden)]
@@ -55,7 +55,7 @@ pub mod de;
 pub mod json;
 
 #[doc(inline)]
-pub use crate::de::Deserialize;
+pub use crate::de::Jayson;
 pub use crate::error::{Error, Result};
 
 make_place!(Place);

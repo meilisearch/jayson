@@ -67,10 +67,7 @@ pub fn derive_struct(
 ) -> Result<TokenStream> {
     let ident = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-    let dummy = Ident::new(
-        &format!("_IMPL_MINIDESERIALIZE_FOR_{}", ident),
-        Span::call_site(),
-    );
+    let dummy = Ident::new(&format!("_IMPL_JAYSON_FOR_{}", ident), Span::call_site());
 
     let fieldname = fields.named.iter().map(|f| &f.ident).collect::<Vec<_>>();
     let fieldty = fields.named.iter().map(|f| &f.ty);
@@ -83,51 +80,50 @@ pub fn derive_struct(
     let wrapper_generics = bound::with_lifetime_bound(&input.generics, "'__a");
     let (wrapper_impl_generics, wrapper_ty_generics, _) = wrapper_generics.split_for_impl();
 
-    let bound = parse_quote!(miniserde::Deserialize);
+    let bound = parse_quote!(jayson::Jayson);
     let bounded_where_clause = bound::where_clause_with_bound(&input.generics, bound);
 
-    let err_ty: Type =
-        syn::parse_str(dbg!(conf.error_ty.as_deref().unwrap_or("miniserde::Error")))?;
+    let err_ty: Type = syn::parse_str(dbg!(conf.error_ty.as_deref().unwrap_or("jayson::Error")))?;
 
     Ok(quote! {
         #[allow(non_upper_case_globals)]
         const #dummy: () = {
             #[repr(C)]
             struct __Visitor #impl_generics #where_clause {
-                __out: miniserde::__private::Option<#ident #ty_generics>,
+                __out: jayson::__private::Option<#ident #ty_generics>,
             }
 
-            impl #impl_generics miniserde::Deserialize<#err_ty> for #ident #ty_generics #bounded_where_clause {
-                fn begin(__out: &mut miniserde::__private::Option<Self>) -> &mut dyn miniserde::de::Visitor<#err_ty> {
+            impl #impl_generics jayson::Jayson<#err_ty> for #ident #ty_generics #bounded_where_clause {
+                fn begin(__out: &mut jayson::__private::Option<Self>) -> &mut dyn jayson::de::Visitor<#err_ty> {
                     unsafe {
                         &mut *{
                             __out
-                            as *mut miniserde::__private::Option<Self>
+                            as *mut jayson::__private::Option<Self>
                             as *mut __Visitor #ty_generics
                         }
                     }
                 }
             }
 
-            impl #impl_generics miniserde::de::Visitor<#err_ty> for __Visitor #ty_generics #bounded_where_clause {
-                fn map(&mut self) -> Result<miniserde::__private::Box<dyn miniserde::de::Map<#err_ty> + '_>, #err_ty> {
+            impl #impl_generics jayson::de::Visitor<#err_ty> for __Visitor #ty_generics #bounded_where_clause {
+                fn map(&mut self) -> Result<jayson::__private::Box<dyn jayson::de::Map<#err_ty> + '_>, #err_ty> {
 
-                    Ok(miniserde::__private::Box::new(__State {
+                    Ok(jayson::__private::Box::new(__State {
                         #(
-                            #fieldname: miniserde::Deserialize::<#err_ty>::default(),
+                            #fieldname: jayson::Jayson::<#err_ty>::default(),
                         )*
                         __out: &mut self.__out,
                     }))
                 }
             }
 
-            impl #wrapper_impl_generics miniserde::de::Map<#err_ty> for __State #wrapper_ty_generics #bounded_where_clause {
-                fn key(&mut self, __k: &miniserde::__private::str) -> Result<&mut dyn ::miniserde::de::Visitor<#err_ty>, #err_ty> {
+            impl #wrapper_impl_generics jayson::de::Map<#err_ty> for __State #wrapper_ty_generics #bounded_where_clause {
+                fn key(&mut self, __k: &jayson::__private::str) -> Result<&mut dyn ::jayson::de::Visitor<#err_ty>, #err_ty> {
                     match __k {
                         #(
-                            #fieldstr => miniserde::__private::Ok(miniserde::Deserialize::begin(&mut self.#fieldname)),
+                            #fieldstr => jayson::__private::Ok(jayson::Jayson::begin(&mut self.#fieldname)),
                         )*
-                        _ => miniserde::__private::Ok(<dyn miniserde::de::Visitor<#err_ty>>::ignore()),
+                        _ => jayson::__private::Ok(<dyn jayson::de::Visitor<#err_ty>>::ignore()),
                     }
                 }
 
@@ -135,20 +131,20 @@ pub fn derive_struct(
                     #(
                         let #fieldname = self.#fieldname.take().ok_or(#err_ty::unexpected())?;
                     )*
-                    *self.__out = miniserde::__private::Some(#ident {
+                    *self.__out = jayson::__private::Some(#ident {
                         #(
                             #fieldname,
                         )*
                     });
-                    miniserde::__private::Ok(())
+                    jayson::__private::Ok(())
                 }
             }
 
             struct __State #wrapper_impl_generics #where_clause {
                 #(
-                    #fieldname: miniserde::__private::Option<#fieldty>,
+                    #fieldname: jayson::__private::Option<#fieldty>,
                 )*
-                __out: &'__a mut miniserde::__private::Option<#ident #ty_generics>,
+                __out: &'__a mut jayson::__private::Option<#ident #ty_generics>,
             }
 
         };
@@ -164,10 +160,7 @@ pub fn derive_enum(input: &DeriveInput, enumeration: &DataEnum) -> Result<TokenS
     }
 
     let ident = &input.ident;
-    let dummy = Ident::new(
-        &format!("_IMPL_MINIDESERIALIZE_FOR_{}", ident),
-        Span::call_site(),
-    );
+    let dummy = Ident::new(&format!("_IMPL_JAYSON_FOR_{}", ident), Span::call_site());
 
     let var_idents = enumeration
         .variants
@@ -191,29 +184,29 @@ pub fn derive_enum(input: &DeriveInput, enumeration: &DataEnum) -> Result<TokenS
         const #dummy: () = {
             #[repr(C)]
             struct __Visitor {
-                __out: miniserde::__private::Option<#ident>,
+                __out: jayson::__private::Option<#ident>,
             }
 
-            impl miniserde::Deserialize for #ident {
-                fn begin(__out: &mut miniserde::__private::Option<Self>) -> &mut dyn miniserde::de::Visitor {
+            impl jayson::Jayson for #ident {
+                fn begin(__out: &mut jayson::__private::Option<Self>) -> &mut dyn jayson::de::Visitor {
                     unsafe {
                         &mut *{
                             __out
-                            as *mut miniserde::__private::Option<Self>
+                            as *mut jayson::__private::Option<Self>
                             as *mut __Visitor
                         }
                     }
                 }
             }
 
-            impl miniserde::de::Visitor for __Visitor {
-                fn string(&mut self, s: &miniserde::__private::str) -> miniserde::Result<()> {
+            impl jayson::de::Visitor for __Visitor {
+                fn string(&mut self, s: &jayson::__private::str) -> jayson::Result<()> {
                     let value = match s {
                         #( #names => #ident::#var_idents, )*
-                        _ => return miniserde::__private::Err(miniserde::Error),
+                        _ => return jayson::__private::Err(jayson::Error),
                     };
-                    self.__out = miniserde::__private::Some(value);
-                    miniserde::__private::Ok(())
+                    self.__out = jayson::__private::Some(value);
+                    jayson::__private::Ok(())
                 }
             }
         };

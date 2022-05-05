@@ -169,7 +169,7 @@ impl DataAttrs {
         for attr in attrs.iter() {
             match attr.parse_meta()? {
                 Meta::List(MetaList { path, nested, .. }) => {
-                    if path.get_ident().unwrap() == "serde" {
+                    if path.get_ident().unwrap() == "jayson" {
                         for nested in nested.iter() {
                             match nested {
                                 syn::NestedMeta::Meta(meta) => {
@@ -296,7 +296,7 @@ impl<'a> Derived<'a> {
     }
 }
 
-#[proc_macro_derive(Deserialize, attributes(serde))]
+#[proc_macro_derive(Jayson, attributes(jayson))]
 pub fn derive_deserialize(input: TokenStream) -> TokenStream {
     match Derived::from_derive_input(&parse_macro_input!(input as DeriveInput)) {
         Ok(derived) => derived
