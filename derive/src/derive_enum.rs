@@ -1,8 +1,7 @@
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
-    parse_quote, punctuated::Punctuated, token::Comma, DeriveInput, Error, Generics, Ident, Lit,
-    LitStr, Type,
+    parse_quote, punctuated::Punctuated, token::Comma, DeriveInput, Error, Generics, Ident, Type,
 };
 
 use crate::{bound, str_name, DataAttrs, Fields, RenameAll};
@@ -215,7 +214,7 @@ impl<'a> DerivedEnum<'a> {
                                 #(#variant_match_branch)*
                                 found => return Err(#err_ty::unexpected(&format!("unexpected value for `{}`: `{}`", #tag_name ,found))),
                             }
-                            None => todo!(),
+                            None => return Err(#err_ty::missing_field(#tag_name)),
                         }
 
                         Ok(())
