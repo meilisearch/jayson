@@ -144,8 +144,6 @@ impl<'a> DerivedEnum<'a> {
         let bound = parse_quote!(jayson::Deserialize);
         let bounded_where_clause = bound::where_clause_with_bound(&self.generics, bound);
 
-        dbg!();
-
         Ok(quote! {
             #[allow(non_upper_case_globals)]
             const #dummy: () = {

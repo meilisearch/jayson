@@ -83,7 +83,7 @@ pub fn derive_struct(
     let bound = parse_quote!(jayson::Jayson);
     let bounded_where_clause = bound::where_clause_with_bound(&input.generics, bound);
 
-    let err_ty: Type = syn::parse_str(dbg!(conf.error_ty.as_deref().unwrap_or("jayson::Error")))?;
+    let err_ty: Type = syn::parse_str(conf.error_ty.as_deref().unwrap_or("jayson::Error"))?;
 
     Ok(quote! {
         #[allow(non_upper_case_globals)]

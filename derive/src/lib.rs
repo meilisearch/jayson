@@ -39,7 +39,7 @@ impl FieldAttrs {
         for attr in attrs.iter() {
             match attr.parse_meta()? {
                 Meta::List(MetaList { path, nested, .. }) => {
-                    if path.get_ident().unwrap() == "serde" {
+                    if path.get_ident().unwrap() == "jayson" {
                         for nested in nested.iter() {
                             match nested {
                                 syn::NestedMeta::Meta(meta) => match meta {
@@ -282,7 +282,7 @@ impl<'a> Derived<'a> {
                 ..
             }) => Ok(Self::Struct(DerivedStruct::parse(&input, fields)?)),
             Data::Enum(DataEnum { variants, .. }) => {
-                Ok(Self::Enum(dbg!(DerivedEnum::parse(&input, variants)?)))
+                Ok(Self::Enum(DerivedEnum::parse(&input, variants)?))
             }
             Data::Struct(_) => Err(Error::new(
                 Span::call_site(),
