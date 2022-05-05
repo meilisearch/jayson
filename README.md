@@ -70,7 +70,7 @@ struct User {
 ## Features
 
 - [x] Derive macro for structs
-- [ ] Derive macro for enums
+- [x] Derive macro for enums (internally tagged)
 - [x] rename all rule (camel case)
 - [x] rename rule
 - [ ] flatten
