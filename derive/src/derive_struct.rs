@@ -2,7 +2,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{parse_quote, DeriveInput, Error, FieldsNamed, Generics, Ident};
 
-use crate::{bound, DataAttrs, Fields};
+use crate::{bound, str_name, DataAttrs, Fields};
 
 #[derive(Debug)]
 pub struct DerivedStruct<'a> {
@@ -56,7 +56,13 @@ impl<'a> DerivedStruct<'a> {
         let fieldstr = self
             .fields
             .iter()
-            .map(|f| f.str_name(self.attrs.rename_all.as_ref()))
+            .map(|f| {
+                str_name(
+                    f.field_name.to_string(),
+                    self.attrs.rename_all.as_ref(),
+                    f.attrs.rename.as_deref(),
+                )
+            })
             .collect::<Vec<_>>();
         let fieldty = self.fields.iter().map(|f| &f.field_ty);
 

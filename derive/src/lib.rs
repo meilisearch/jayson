@@ -26,6 +26,7 @@ use syn::{
 #[derive(Debug)]
 enum RenameAll {
     CamelCase,
+    LowerCase,
 }
 
 #[derive(Default, Debug)]
@@ -136,16 +137,16 @@ impl<'a> Field<'a> {
             field_ty,
         })
     }
+}
 
-    /// The name of the fields, with potential applied trasformations
-    fn str_name(&self, rename_all: Option<&RenameAll>) -> String {
-        match self.attrs.rename {
-            Some(ref name) => name.clone(),
-            None => match rename_all {
-                Some(RenameAll::CamelCase) => self.field_name.to_string().to_case(Case::Camel),
-                None => self.field_name.to_string(),
-            },
-        }
+fn str_name(name: String, rename_all: Option<&RenameAll>, rename: Option<&str>) -> String {
+    match rename {
+        Some(name) => name.to_string(),
+        None => match rename_all {
+            Some(RenameAll::CamelCase) => name.to_case(Case::Camel),
+            Some(RenameAll::LowerCase) => name.to_lowercase(),
+            None => name,
+        },
     }
 }
 
@@ -201,10 +202,11 @@ impl DataAttrs {
 
                                                     let rename_all = match case.as_str() {
                                                     "CamelCase" => RenameAll::CamelCase,
+                                                    "lowercase" => RenameAll::LowerCase,
                                                     _ => {
                                                         return Err(Error::new(
                                                             nv.lit.span(),
-                                                            "invalid rename all rule. Valid rename rules are: CamelCase",
+                                                            "invalid rename all rule. Valid rename rules are: `CamelCase`, `lowercase`",
                                                         ))
                                                     }
                                                 };

@@ -5,7 +5,7 @@ use syn::{
     LitStr, Type,
 };
 
-use crate::{bound, DataAttrs, Fields};
+use crate::{bound, str_name, DataAttrs, Fields, RenameAll};
 
 #[derive(Debug)]
 pub struct DerivedEnum<'a> {
@@ -17,29 +17,48 @@ pub struct DerivedEnum<'a> {
 
 #[derive(Debug)]
 enum Variant<'a> {
-    Unit { name: &'a Ident },
-    Named { name: &'a Ident, fields: Fields<'a> },
+    Unit {
+        name: &'a Ident,
+    },
+    Named {
+        name: &'a Ident,
+        fields: Fields<'a>,
+        attrs: DataAttrs,
+    },
 }
 
 impl<'a> Variant<'a> {
-    fn gen(&self, enum_ident: &Ident, err_ty: &Type) -> syn::Result<TokenStream> {
+    fn gen(
+        &self,
+        enum_ident: &Ident,
+        err_ty: &Type,
+        rename_all: Option<&RenameAll>,
+    ) -> syn::Result<TokenStream> {
         match self {
             Variant::Unit { name } => {
-                let name_str = Lit::Str(LitStr::new(&name.to_string(), Span::call_site()));
+                let name_str = str_name(name.to_string(), rename_all, None);
                 Ok(quote! {
                     #name_str => {
                         self.__out.replace(#enum_ident::#name);
                     }
                 })
             }
-            Variant::Named { name, fields } => {
-                let name_str = Lit::Str(LitStr::new(&name.to_string(), Span::call_site()));
+            Variant::Named {
+                name,
+                fields,
+                attrs,
+            } => {
+                let name_str = str_name(name.to_string(), rename_all, None);
                 let field_impls = fields.iter().map(|f| {
                     let ident = f.field_name;
                     // TODO: handle rename all
-                    let name = f.str_name(None);
+                    let name = str_name(
+                        f.field_name.to_string(),
+                        attrs.rename_all.as_ref(),
+                        f.attrs.rename.as_deref(),
+                    );
                     quote! {
-                        let mut #ident = None;
+                        let mut #ident = jayson::__private::None;
                         let v = jayson::Jayson::begin(&mut #ident);
                         let val = std::mem::replace(
                             self.object
@@ -77,8 +96,13 @@ impl<'a> DerivedEnum<'a> {
                 syn::Fields::Named(ref named) => {
                     let name = &variant.ident;
                     let fields = Fields::parse(named)?;
+                    let attrs = DataAttrs::parse(&variant.attrs, false)?;
 
-                    Variant::Named { name, fields }
+                    Variant::Named {
+                        name,
+                        fields,
+                        attrs,
+                    }
                 }
                 syn::Fields::Unit => {
                     let name = &variant.ident;
@@ -134,7 +158,7 @@ impl<'a> DerivedEnum<'a> {
         let variant_match_branch = self
             .variants
             .iter()
-            .map(|v| v.gen(self.name, &err_ty))
+            .map(|v| v.gen(self.name, &err_ty, self.attrs.rename_all.as_ref()))
             .collect::<syn::Result<Vec<_>>>()?;
 
         let ident = self.name;
