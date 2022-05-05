@@ -1,3 +1,4 @@
+mod deser_tagged;
 mod impls;
 
 use crate::error::Error;
@@ -35,7 +36,7 @@ pub trait Deserialize<E = Error>: Sized {
 }
 
 pub trait VisitorError: 'static {
-    fn unexpected() -> Self;
+    fn unexpected(s: &str) -> Self;
     fn format_error(line: usize, pos: usize, msg: &str) -> Self;
     fn missing_field(field: &str) -> Self;
 }
@@ -45,40 +46,40 @@ pub trait VisitorError: 'static {
 /// [Refer to the module documentation for examples.][crate::de]
 pub trait Visitor<E: VisitorError = Error> {
     fn null(&mut self) -> Result<(), E> {
-        Err(E::unexpected())
+        Err(E::unexpected("null"))
     }
 
     fn boolean(&mut self, b: bool) -> Result<(), E> {
         let _ = b;
-        Err(E::unexpected())
+        Err(E::unexpected("boolean"))
     }
 
     fn string(&mut self, s: &str) -> Result<(), E> {
         let _ = s;
-        Err(E::unexpected())
+        Err(E::unexpected("string"))
     }
 
     fn negative(&mut self, n: i64) -> Result<(), E> {
         let _ = n;
-        Err(E::unexpected())
+        Err(E::unexpected("negative integer"))
     }
 
     fn nonnegative(&mut self, n: u64) -> Result<(), E> {
         let _ = n;
-        Err(E::unexpected())
+        Err(E::unexpected("non negative integer"))
     }
 
     fn float(&mut self, n: f64) -> Result<(), E> {
         let _ = n;
-        Err(E::unexpected())
+        Err(E::unexpected("float"))
     }
 
     fn seq(&mut self) -> Result<Box<dyn Seq<E> + '_>, E> {
-        Err(E::unexpected())
+        Err(E::unexpected("sequence"))
     }
 
     fn map(&mut self) -> Result<Box<dyn Map<E> + '_>, E> {
-        Err(E::unexpected())
+        Err(E::unexpected("map"))
     }
 }
 

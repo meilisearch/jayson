@@ -65,7 +65,7 @@ macro_rules! signed {
                             self.out = Some(n as $ty);
                             Ok(())
                         } else {
-                            Err(E::unexpected())
+                            Err(E::unexpected("error"))
                         }
                     }
 
@@ -74,7 +74,7 @@ macro_rules! signed {
                             self.out = Some(n as $ty);
                             Ok(())
                         } else {
-                            Err(E::unexpected())
+                            Err(E::unexpected("error"))
                         }
                     }
                 }
@@ -102,7 +102,7 @@ macro_rules! unsigned {
                             self.out = Some(n as $ty);
                             Ok(())
                         } else {
-                            Err(E::unexpected())
+                            Err(E::unexpected("value overflow"))
                         }
                     }
                 }
@@ -352,7 +352,7 @@ where
                 } else if self.tuple.1.is_none() {
                     Ok(Deserialize::begin(&mut self.tuple.1))
                 } else {
-                    Err(E::unexpected())
+                    Err(E::unexpected("tuple has more than 2 items."))
                 }
             }
 
@@ -361,7 +361,7 @@ where
                     *self.out = Some((a, b));
                     Ok(())
                 } else {
-                    Err(E::unexpected())
+                    Err(E::unexpected("tuple should have 2 items"))
                 }
             }
         }
@@ -465,7 +465,7 @@ where
                 self.shift();
                 self.key = Some(match K::from_str(k) {
                     Ok(key) => key,
-                    Err(_) => return Err(E::unexpected()),
+                    Err(_) => return Err(E::unexpected(&format!("can not parse map key `{k}`"))),
                 });
                 Ok(Deserialize::begin(&mut self.value))
             }
@@ -525,7 +525,7 @@ impl<E: VisitorError, K: FromStr + Ord, V: Deserialize<E>> Deserialize<E> for BT
                 self.shift();
                 self.key = Some(match K::from_str(k) {
                     Ok(key) => key,
-                    Err(_) => return Err(E::unexpected()),
+                    Err(_) => return Err(E::unexpected(&format!("can not parse map key `{k}`"))),
                 });
                 Ok(Deserialize::begin(&mut self.value))
             }

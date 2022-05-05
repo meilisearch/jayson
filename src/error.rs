@@ -10,7 +10,7 @@ use crate::de::VisitorError;
 pub struct Error;
 
 impl VisitorError for Error {
-    fn unexpected() -> Self {
+    fn unexpected(_: &str) -> Self {
         Self
     }
 

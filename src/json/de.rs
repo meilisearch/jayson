@@ -30,7 +30,7 @@ use std::fmt::LowerHex;
 pub fn from_str<T: Deserialize<E>, E: VisitorError>(j: &str) -> Result<T, E> {
     let mut out = None;
     from_str_impl(j, T::begin(&mut out))?;
-    out.ok_or(E::unexpected())
+    out.ok_or(E::unexpected("Failed to deserialize"))
 }
 
 struct Deserializer<'a, 'b, E> {
@@ -428,11 +428,11 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
         for expected in ident {
             match self.next() {
                 None => {
-                    return Err(E::unexpected());
+                    return Err(E::unexpected("error"));
                 }
                 Some(next) => {
                     if next != *expected {
-                        return Err(E::unexpected());
+                        return Err(E::unexpected("error"));
                     }
                 }
             }
@@ -445,7 +445,7 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
             b'0' => {
                 // There can be only one leading '0'.
                 match self.peek_or_nul() {
-                    b'0'..=b'9' => Err(E::unexpected()),
+                    b'0'..=b'9' => Err(E::unexpected("error")),
                     _ => self.parse_number(nonnegative, 0),
                 }
             }
@@ -479,7 +479,7 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
                     }
                 }
             }
-            _ => Err(E::unexpected()),
+            _ => Err(E::unexpected("error")),
         }
     }
 
@@ -559,7 +559,7 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
         }
 
         if !at_least_one_digit {
-            return Err(E::unexpected());
+            return Err(E::unexpected("error"));
         }
 
         match self.peek_or_nul() {
@@ -592,7 +592,7 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
         let mut exp = match self.next_or_nul() {
             c @ b'0'..=b'9' => i32::from(c - b'0'),
             _ => {
-                return Err(E::unexpected());
+                return Err(E::unexpected("error"));
             }
         };
 
@@ -628,7 +628,7 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
     ) -> Result<f64, E> {
         // Error instead of +/- infinity.
         if significand != 0 && positive_exp {
-            return Err(E::unexpected());
+            return Err(E::unexpected("error"));
         }
 
         while let b'0'..=b'9' = self.peek_or_nul() {
@@ -640,7 +640,7 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
     fn event(&mut self) -> Result<Event, E> {
         let peek = match self.parse_whitespace() {
             Some(b) => b,
-            None => return Err(E::unexpected()),
+            None => return Err(E::unexpected("error")),
         };
         self.bump();
         match peek {
@@ -664,7 +664,7 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
                 self.parse_ident(b"alse")?;
                 Ok(Bool(false))
             }
-            _ => Err(E::unexpected()),
+            _ => Err(E::unexpected("error")),
         }
     }
 }
@@ -681,7 +681,7 @@ fn f64_from_parts<E: VisitorError>(
                 if exponent >= 0 {
                     f *= pow;
                     if f.is_infinite() {
-                        return Err(E::unexpected());
+                        return Err(E::unexpected("error"));
                     }
                 } else {
                     f /= pow;
@@ -693,7 +693,7 @@ fn f64_from_parts<E: VisitorError>(
                     break;
                 }
                 if exponent >= 0 {
-                    return Err(E::unexpected());
+                    return Err(E::unexpected("error"));
                 }
                 f /= 1e308;
                 exponent += 308;
