@@ -4,6 +4,7 @@
 //! serializing and deserializing JSON.
 
 mod de;
+
 pub use self::de::from_str;
 
 mod value;

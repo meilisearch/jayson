@@ -7,12 +7,13 @@
 extern crate proc_macro;
 
 mod bound;
-// mod derive_enum;
+mod derive_enum;
 mod derive_struct;
 
 use std::slice::Iter;
 
 use convert_case::{Case, Casing};
+use derive_enum::DerivedEnum;
 // use derive_enum::DerivedEnum;
 use derive_struct::DerivedStruct;
 use proc_macro::TokenStream;
@@ -261,14 +262,14 @@ impl DataAttrs {
 
 enum Derived<'a> {
     Struct(DerivedStruct<'a>),
-    // Enum(DerivedEnum<'a>),
+    Enum(DerivedEnum<'a>),
 }
 
 impl<'a> Derived<'a> {
     fn gen(&self) -> syn::Result<proc_macro2::TokenStream> {
         match self {
             Derived::Struct(s) => s.gen(),
-            // Derived::Enum(_) => todo!(),
+            Derived::Enum(e) => e.gen(),
         }
     }
 }
@@ -280,9 +281,8 @@ impl<'a> Derived<'a> {
                 fields: syn::Fields::Named(fields),
                 ..
             }) => Ok(Self::Struct(DerivedStruct::parse(&input, fields)?)),
-            Data::Enum(DataEnum { .. }) => {
-                todo!()
-                // Ok(Self::Enum(DerivedEnum::parse(&input, variants)?))
+            Data::Enum(DataEnum { variants, .. }) => {
+                Ok(Self::Enum(dbg!(DerivedEnum::parse(&input, variants)?)))
             }
             Data::Struct(_) => Err(Error::new(
                 Span::call_site(),

@@ -81,7 +81,7 @@ impl<'a> DerivedStruct<'a> {
                 }
 
                 impl #impl_generics jayson::de::Visitor<#err_ty> for __Visitor #ty_generics #bounded_where_clause {
-                    fn map(&mut self) -> Result<jayson::__private::Box<dyn jayson::de::Map<#err_ty> + '_>, #err_ty> {
+                    fn map(&mut self) -> jayson::__private::Result<jayson::__private::Box<dyn jayson::de::Map<#err_ty> + '_>, #err_ty> {
 
                         Ok(jayson::__private::Box::new(__State {
                             #(
@@ -93,7 +93,7 @@ impl<'a> DerivedStruct<'a> {
                 }
 
                 impl #wrapper_impl_generics jayson::de::Map<#err_ty> for __State #wrapper_ty_generics #bounded_where_clause {
-                    fn key(&mut self, __k: &jayson::__private::str) -> Result<&mut dyn ::jayson::de::Visitor<#err_ty>, #err_ty> {
+                    fn key(&mut self, __k: &jayson::__private::str) -> jayson::__private::Result<&mut dyn ::jayson::de::Visitor<#err_ty>, #err_ty> {
                         match __k {
                             #(
                                 #fieldstr => jayson::__private::Ok(jayson::Jayson::begin(&mut self.#fieldname)),
@@ -102,7 +102,7 @@ impl<'a> DerivedStruct<'a> {
                         }
                     }
 
-                    fn finish(&mut self) -> Result<(), #err_ty> {
+                    fn finish(&mut self) -> jayson::__private::Result<(), #err_ty> {
                         #(
                             let #fieldname = self.#fieldname.take().ok_or(#err_ty::missing_field(#fieldstr))?;
                         )*
