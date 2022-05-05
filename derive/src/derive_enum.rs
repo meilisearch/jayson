@@ -144,7 +144,7 @@ impl<'a> DerivedEnum<'a> {
         }
     }
 
-    fn gen_internally_tagged(&self, name: &str) -> syn::Result<TokenStream> {
+    fn gen_internally_tagged(&self, tag_name: &str) -> syn::Result<TokenStream> {
         let dummy = Ident::new(
             &format!("_IMPL_JAYSON_FOR_{}", self.name),
             Span::call_site(),
@@ -154,7 +154,6 @@ impl<'a> DerivedEnum<'a> {
                 Error::new(Span::call_site(), "Missing ascociasted error type.")
             })?)?;
 
-        let tag_name = Lit::Str(LitStr::new(name, Span::call_site()));
         let variant_match_branch = self
             .variants
             .iter()
@@ -214,7 +213,7 @@ impl<'a> DerivedEnum<'a> {
                         match self.object.get(#tag_name).and_then(|o| o.as_str()) {
                             Some(variant) => match variant {
                                 #(#variant_match_branch)*
-                                _ => todo!(),
+                                found => return Err(#err_ty::unexpected(&format!("unexpected value for `{}`: `{}`", #tag_name ,found))),
                             }
                             None => todo!(),
                         }
