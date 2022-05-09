@@ -14,7 +14,6 @@ use std::slice::Iter;
 
 use convert_case::{Case, Casing};
 use derive_enum::DerivedEnum;
-// use derive_enum::DerivedEnum;
 use derive_struct::DerivedStruct;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
