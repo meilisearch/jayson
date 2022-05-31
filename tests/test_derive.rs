@@ -1,10 +1,9 @@
 use jayson::{de::VisitorError, json, Error, Jayson};
 
 #[derive(PartialEq, Debug, Jayson)]
-#[jayson(error = "Error")]
+#[jayson(error = "Error", tag = "sometag")]
 enum Tag {
     A,
-    #[jayson(rename = "renamedB")]
     B,
 }
 
@@ -26,7 +25,7 @@ struct Nested {
 
 #[test]
 fn test_de() {
-    let j = r#" {"x": "X", "t1": "A", "t2": "renamedB", "n": {"y": ["Y", "Y"]}} "#;
+    let j = r#" {"x": "X", "t1": { "sometag": "A" }, "t2": { "sometag": "B" }, "n": {"y": ["Y", "Y"]}} "#;
     let actual: Example = json::from_str(j).unwrap();
     let expected = Example {
         x: "X".to_owned(),

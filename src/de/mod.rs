@@ -11,14 +11,14 @@ pub trait Jayson<E = Error>: Sized {
     ///
     /// ```rust
     /// # use jayson::make_place;
-    /// # use jayson::de::{Deserialize, Visitor};
+    /// # use jayson::de::{Jayson, Visitor, VisitorError};
     /// #
     /// # make_place!(Place);
     /// # struct S;
-    /// # impl Visitor for Place<S> {}
+    /// # impl<E: VisitorError> Visitor<E> for Place<S> {}
     /// #
-    /// # impl Deserialize for S {
-    /// fn begin(out: &mut Option<Self>) -> &mut dyn Visitor {
+    /// # impl<E: VisitorError> Jayson<E> for S {
+    /// fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
     ///     Place::new(out)
     /// }
     /// # }

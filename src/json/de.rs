@@ -10,9 +10,11 @@ use std::fmt::LowerHex;
 /// Deserialize a JSON string into any deserializable type.
 ///
 /// ```rust
-/// use jayson::{json, Deserialize};
+/// use jayson::{json, Jayson, Error};
+/// use jayson::de::VisitorError;
 ///
-/// #[derive(Deserialize, Debug)]
+/// #[derive(Jayson, Debug)]
+/// #[jayson(error = "Error")]
 /// struct Example {
 ///     code: u32,
 ///     message: String,
