@@ -149,11 +149,15 @@ fn str_name(name: String, rename_all: Option<&RenameAll>, rename: Option<&str>) 
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 enum TagType {
     Internal(String),
-    #[default]
     External,
+}
+impl Default for TagType {
+    fn default() -> Self {
+        Self::External
+    }
 }
 
 #[derive(Default, Debug)]

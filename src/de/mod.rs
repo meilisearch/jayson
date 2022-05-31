@@ -1,4 +1,3 @@
-mod deser_tagged;
 mod impls;
 
 use crate::error::Error;
