@@ -22,7 +22,7 @@ enum Variant<'a> {
     Named {
         name: &'a Ident,
         fields: Fields<'a>,
-        attrs: DataAttrs,
+        // attrs: DataAttrs,
     },
 }
 
@@ -45,17 +45,14 @@ impl<'a> Variant<'a> {
             Variant::Named {
                 name,
                 fields,
-                attrs,
+                // attrs,
             } => {
                 let name_str = str_name(name.to_string(), rename_all, None);
                 let field_impls = fields.iter().map(|f| {
                     let ident = f.field_name;
                     // TODO: handle rename all
-                    let name = str_name(
-                        f.field_name.to_string(),
-                        attrs.rename_all.as_ref(),
-                        f.attrs.rename.as_deref(),
-                    );
+                    let name = str_name(f.field_name.to_string(), None, f.attrs.rename.as_deref());
+
                     quote! {
                         let mut #ident = jayson::__private::None;
                         let v = jayson::Jayson::begin(&mut #ident);
@@ -95,12 +92,15 @@ impl<'a> DerivedEnum<'a> {
                 syn::Fields::Named(ref named) => {
                     let name = &variant.ident;
                     let fields = Fields::parse(named)?;
-                    let attrs = DataAttrs::parse(&variant.attrs, false)?;
+                    // TODO: this cannot be correct?
+                    // the attributes for an enum variant are different than the attributes
+                    // for the whole enum/struct
+                    // let attrs = DataAttrs::parse(&variant.attrs, false)?;
 
                     Variant::Named {
                         name,
                         fields,
-                        attrs,
+                        // attrs,
                     }
                 }
                 syn::Fields::Unit => {
