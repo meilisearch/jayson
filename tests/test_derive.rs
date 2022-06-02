@@ -1,14 +1,15 @@
 use jayson::{de::VisitorError, json, Error, Jayson};
 use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Debug, Jayson)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
+#[serde(tag = "sometag")]
 #[jayson(error = "Error", tag = "sometag")]
 enum Tag {
     A,
     B,
 }
 
-#[derive(PartialEq, Debug, Jayson)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
 #[jayson(error = "Error")]
 struct Example {
     x: String,
@@ -17,20 +18,20 @@ struct Example {
     n: Box<Nested>,
 }
 
-#[derive(PartialEq, Debug, Jayson)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
 #[jayson(error = "Error")]
 struct Nested {
     y: Option<Vec<String>>,
     z: Option<String>,
 }
 
-#[derive(PartialEq, Debug, Jayson)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
 #[jayson(error = "Error")]
 struct StructWithDefaultAttr {
     x: bool,
     #[serde(default = "create_default_u8")]
     y: u8,
-    #[jayson(default = "create_default_option_string")]
+    #[serde(default = "create_default_option_string")]
     z: Option<String>,
 }
 fn create_default_u8() -> u8 {
@@ -58,7 +59,8 @@ enum EnumWithOptionData {
 #[test]
 fn test_de() {
     let j = r#" {"x": "X", "t1": { "sometag": "A" }, "t2": { "sometag": "B" }, "n": {"y": ["Y", "Y"]}} "#;
-    let actual: Example = json::from_str(j).unwrap();
+    let actual_serde: Example = serde_json::from_str(j).unwrap();
+    let actual_jayson: Example = json::from_str(j).unwrap();
     let expected = Example {
         x: "X".to_owned(),
         t1: Tag::A,
@@ -68,35 +70,39 @@ fn test_de() {
             z: None,
         }),
     };
-    assert_eq!(actual, expected);
+    assert_eq!(actual_serde, expected);
+    assert_eq!(actual_jayson, expected);
 
     let j = r#"{
             "x": true,
             "y": 10
         }
         "#;
-    let actual: StructWithDefaultAttr = json::from_str(j).unwrap();
+    let actual_serde: StructWithDefaultAttr = serde_json::from_str(j).unwrap();
+    let actual_jayson: StructWithDefaultAttr = json::from_str(j).unwrap();
     let expected = StructWithDefaultAttr {
         x: true,
         y: 10,
         z: create_default_option_string(),
     };
-    assert_eq!(actual, expected);
 
-    assert_eq!(actual, expected);
+    assert_eq!(actual_serde, expected);
+    assert_eq!(actual_jayson, expected);
 
     let j = r#"{
             "x": true,
             "z": null
         }
         "#;
-    let actual: StructWithDefaultAttr = json::from_str(j).unwrap();
+    let actual_serde: StructWithDefaultAttr = serde_json::from_str(j).unwrap();
+    let actual_jayson: StructWithDefaultAttr = json::from_str(j).unwrap();
     let expected = StructWithDefaultAttr {
         x: true,
         y: 1,
         z: None,
     };
-    assert_eq!(actual, expected);
+    assert_eq!(actual_serde, expected);
+    assert_eq!(actual_jayson, expected);
 
     let j = r#"{
             "t": "A"
