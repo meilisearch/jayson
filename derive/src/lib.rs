@@ -31,6 +31,7 @@ enum RenameAll {
 #[derive(Default, Debug)]
 struct FieldAttrs {
     rename: Option<String>,
+    default: Option<String>,
 }
 
 impl FieldAttrs {
@@ -39,24 +40,38 @@ impl FieldAttrs {
         for attr in attrs.iter() {
             match attr.parse_meta()? {
                 Meta::List(MetaList { path, nested, .. }) => {
-                    if path.get_ident().unwrap() == "jayson" {
+                    if matches!(
+                        path.get_ident().unwrap().to_string().as_str(),
+                        "jayson" | "serde"
+                    ) {
                         for nested in nested.iter() {
                             match nested {
                                 syn::NestedMeta::Meta(meta) => match meta {
                                     Meta::NameValue(nv) => {
                                         match nv.path.get_ident().unwrap().to_string().as_str() {
                                             "rename" => {
-                                                let name = match &nv.lit {
-                                                    syn::Lit::Str(v) => v.value(),
-                                                    _ => {
-                                                        return Err(Error::new(
+                                                let name =
+                                                    match &nv.lit {
+                                                        syn::Lit::Str(v) => v.value(),
+                                                        _ => return Err(Error::new(
                                                             nv.lit.span(),
-                                                            "error should be a string literal",
-                                                        ))
-                                                    }
-                                                };
+                                                            "“rename” should be a string literal",
+                                                        )),
+                                                    };
 
                                                 this.rename.replace(name);
+                                            }
+                                            "default" => {
+                                                let name =
+                                                    match &nv.lit {
+                                                        syn::Lit::Str(v) => v.value(),
+                                                        _ => return Err(Error::new(
+                                                            nv.lit.span(),
+                                                            "“default” should be a string literal",
+                                                        )),
+                                                    };
+
+                                                this.default.replace(name);
                                             }
                                             _ => {
                                                 return Err(Error::new(
@@ -174,7 +189,10 @@ impl DataAttrs {
         for attr in attrs.iter() {
             match attr.parse_meta()? {
                 Meta::List(MetaList { path, nested, .. }) => {
-                    if path.get_ident().unwrap() == "jayson" {
+                    if matches!(
+                        path.get_ident().unwrap().to_string().as_str(),
+                        "jayson" | "serde"
+                    ) {
                         for nested in nested.iter() {
                             match nested {
                                 syn::NestedMeta::Meta(meta) => {
@@ -204,12 +222,12 @@ impl DataAttrs {
                                                         };
 
                                                     let rename_all = match case.as_str() {
-                                                    "CamelCase" => RenameAll::CamelCase,
+                                                    "camelCase" => RenameAll::CamelCase,
                                                     "lowercase" => RenameAll::LowerCase,
                                                     _ => {
                                                         return Err(Error::new(
                                                             nv.lit.span(),
-                                                            "invalid rename all rule. Valid rename rules are: `CamelCase`, `lowercase`",
+                                                            "invalid rename all rule. Valid rename rules are: `camelCase`, `lowercase`",
                                                         ))
                                                     }
                                                 };
@@ -243,12 +261,33 @@ impl DataAttrs {
                                                 }
                                             }
                                         }
-                                        _ => {
+                                        Meta::Path(p) => {
+                                            if let Some(ident) = p.get_ident() {
+                                                if ident == "deny_unknown_fields" {
+                                                } else {
+                                                    return Err(Error::new(
+                                                        nested.span(),
+                                                        "Unexpected attribute",
+                                                    ));
+                                                }
+                                            } else {
+                                                return Err(Error::new(
+                                                    nested.span(),
+                                                    "Unexpected attribute",
+                                                ));
+                                            }
+                                        }
+                                        Meta::List(_) => {
                                             return Err(Error::new(
                                                 nested.span(),
                                                 "Unexpected attribute",
                                             ))
-                                        }
+                                        } // _ => {
+                                          //     return Err(Error::new(
+                                          //         nested.span(),
+                                          //         "Unexpected attribute",
+                                          //     ))
+                                          // }
                                     }
                                 }
                                 syn::NestedMeta::Lit(lit) => {
@@ -301,7 +340,7 @@ impl<'a> Derived<'a> {
     }
 }
 
-#[proc_macro_derive(Jayson, attributes(jayson))]
+#[proc_macro_derive(Jayson, attributes(jayson, serde))]
 pub fn derive_deserialize(input: TokenStream) -> TokenStream {
     match Derived::from_derive_input(&parse_macro_input!(input as DeriveInput)) {
         Ok(derived) => derived

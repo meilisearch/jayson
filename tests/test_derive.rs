@@ -23,6 +23,22 @@ struct Nested {
     z: Option<String>,
 }
 
+#[derive(PartialEq, Debug, Jayson)]
+#[jayson(error = "Error")]
+struct StructWithDefaultAttr {
+    x: bool,
+    #[serde(default = "create_default_u8")]
+    y: u8,
+    #[jayson(default = "create_default_option_string")]
+    z: Option<String>,
+}
+fn create_default_u8() -> u8 {
+    1
+}
+fn create_default_option_string() -> Option<String> {
+    Some("helllo".to_owned())
+}
+
 #[test]
 fn test_de() {
     let j = r#" {"x": "X", "t1": { "sometag": "A" }, "t2": { "sometag": "B" }, "n": {"y": ["Y", "Y"]}} "#;
@@ -35,6 +51,34 @@ fn test_de() {
             y: Some(vec!["Y".to_owned(), "Y".to_owned()]),
             z: None,
         }),
+    };
+    assert_eq!(actual, expected);
+
+    let j = r#"{
+            "x": true,
+            "y": 10
+        }
+        "#;
+    let actual: StructWithDefaultAttr = json::from_str(j).unwrap();
+    let expected = StructWithDefaultAttr {
+        x: true,
+        y: 10,
+        z: create_default_option_string(),
+    };
+    assert_eq!(actual, expected);
+
+    assert_eq!(actual, expected);
+
+    let j = r#"{
+            "x": true,
+            "z": null
+        }
+        "#;
+    let actual: StructWithDefaultAttr = json::from_str(j).unwrap();
+    let expected = StructWithDefaultAttr {
+        x: true,
+        y: 1,
+        z: None,
     };
     assert_eq!(actual, expected);
 }

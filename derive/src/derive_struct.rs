@@ -66,6 +66,19 @@ impl<'a> DerivedStruct<'a> {
             .collect::<Vec<_>>();
         let fieldty = self.fields.iter().map(|f| &f.field_ty);
 
+        let field_defaults = self.fields.iter().map(|f| {
+            if let Some(default) = &f.attrs.default {
+                let default = str::parse::<proc_macro2::TokenStream>(default).unwrap();
+                quote! {
+                    jayson::__private::Option::Some(#default ())
+                }
+            } else {
+                quote! {
+                    jayson::Jayson::<#err_ty>::default()
+                }
+            }
+        });
+
         Ok(quote! {
             #[allow(non_upper_case_globals)]
             const #dummy: () = {
@@ -91,7 +104,7 @@ impl<'a> DerivedStruct<'a> {
 
                         Ok(jayson::__private::Box::new(__State {
                             #(
-                                #fieldname: jayson::Jayson::<#err_ty>::default(),
+                                #fieldname: #field_defaults ,
                             )*
                             __out: &mut self.__out,
                         }))
