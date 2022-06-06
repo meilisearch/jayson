@@ -1,5 +1,5 @@
 use jayson::{de::VisitorError, json, Error, Jayson};
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
 #[serde(tag = "sometag")]
@@ -35,10 +35,10 @@ struct StructWithDefaultAttr {
     z: Option<String>,
 }
 fn create_default_u8() -> u8 {
-    1
+    152
 }
 fn create_default_option_string() -> Option<String> {
-    Some("helllo".to_owned())
+    Some("hello".to_owned())
 }
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
@@ -56,12 +56,51 @@ enum EnumWithOptionData {
     },
 }
 
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
+#[jayson(error = "Error")]
+#[serde(rename_all = "camelCase")]
+struct RenamedAllCamelCaseStruct {
+    renamed_field: bool,
+}
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
+#[jayson(error = "Error")]
+#[serde(rename_all = "lowercase")]
+struct RenamedAllLowerCaseStruct {
+    renamed_field: bool,
+}
+
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
+#[jayson(error = "Error")]
+#[serde(tag = "t")]
+#[serde(rename_all = "camelCase")]
+enum RenamedAllCamelCaseEnum {
+    SomeField { my_field: bool },
+}
+
+fn compare_with_serde_roundtrip<T>(x: T)
+where
+    T: Serialize + Jayson + PartialEq + std::fmt::Debug,
+{
+    let json = serde_json::to_string_pretty(&x).unwrap();
+    let actual_jayson: T = json::from_str(json.as_str()).unwrap();
+
+    assert_eq!(actual_jayson, x);
+}
+
+fn compare_with_serde<T>(j: &str)
+where
+    T: DeserializeOwned + Serialize + Jayson + PartialEq + std::fmt::Debug,
+{
+    let actual_serde = serde_json::from_str(j).unwrap();
+    let actual_jayson: T = json::from_str(j).unwrap();
+
+    assert_eq!(actual_jayson, actual_serde);
+}
+
 #[test]
 fn test_de() {
-    let j = r#" {"x": "X", "t1": { "sometag": "A" }, "t2": { "sometag": "B" }, "n": {"y": ["Y", "Y"]}} "#;
-    let actual_serde: Example = serde_json::from_str(j).unwrap();
-    let actual_jayson: Example = json::from_str(j).unwrap();
-    let expected = Example {
+    // arbitrary struct, roundtrip
+    compare_with_serde_roundtrip(Example {
         x: "X".to_owned(),
         t1: Tag::A,
         t2: Box::new(Tag::B),
@@ -69,87 +108,52 @@ fn test_de() {
             y: Some(vec!["Y".to_owned(), "Y".to_owned()]),
             z: None,
         }),
-    };
-    assert_eq!(actual_serde, expected);
-    assert_eq!(actual_jayson, expected);
+    });
 
-    let j = r#"{
-            "x": true,
-            "y": 10
-        }
-        "#;
-    let actual_serde: StructWithDefaultAttr = serde_json::from_str(j).unwrap();
-    let actual_jayson: StructWithDefaultAttr = json::from_str(j).unwrap();
-    let expected = StructWithDefaultAttr {
-        x: true,
-        y: 10,
-        z: create_default_option_string(),
-    };
+    // struct rename all camel case, roundtrip
+    compare_with_serde_roundtrip(RenamedAllCamelCaseStruct {
+        renamed_field: true,
+    });
+    // struct rename all lower case, roundtrip
+    compare_with_serde_roundtrip(RenamedAllLowerCaseStruct {
+        renamed_field: true,
+    });
 
-    assert_eq!(actual_serde, expected);
-    assert_eq!(actual_jayson, expected);
+    // enum rename all variants camel case, roundtrip
+    compare_with_serde_roundtrip(RenamedAllCamelCaseEnum::SomeField { my_field: true });
 
-    let j = r#"{
-            "x": true,
-            "z": null
-        }
-        "#;
-    let actual_serde: StructWithDefaultAttr = serde_json::from_str(j).unwrap();
-    let actual_jayson: StructWithDefaultAttr = json::from_str(j).unwrap();
-    let expected = StructWithDefaultAttr {
+    // struct default attributes serde, roundtrip
+    compare_with_serde_roundtrip(StructWithDefaultAttr {
         x: true,
         y: 1,
         z: None,
-    };
-    assert_eq!(actual_serde, expected);
-    assert_eq!(actual_jayson, expected);
+    });
 
-    let j = r#"{
-            "t": "A"
+    // struct default attributes, missing field
+    compare_with_serde::<StructWithDefaultAttr>(
+        r#"{
+            "x": true,
+            "y": 10
         }
-        "#;
-    let actual_serde: EnumWithOptionData = serde_json::from_str(j).unwrap();
-    let expected = EnumWithOptionData::A { x: None };
-    assert_eq!(actual_serde, expected);
+        "#,
+    );
 
-    let actual_jayson: EnumWithOptionData = json::from_str(j).unwrap();
-    assert_eq!(actual_jayson, expected);
+    // enum with optional data inside variant, roundtrip
+    compare_with_serde_roundtrip(EnumWithOptionData::A { x: None });
 
-    let j = r#"{
-            "t": "A"
-        }
-        "#;
-    let actual_serde: EnumWithOptionData = serde_json::from_str(j).unwrap();
-    let expected = EnumWithOptionData::A { x: None };
-    assert_eq!(actual_serde, expected);
+    // enum with optional data inside variant, missing field
+    compare_with_serde::<EnumWithOptionData>(r#"{ "t": "A" }"#);
 
-    let actual_jayson: EnumWithOptionData = json::from_str(j).unwrap();
-    assert_eq!(actual_jayson, expected);
+    // enum with optional and defaultable data inside variant, missing fields
+    compare_with_serde::<EnumWithOptionData>(r#"{ "t": "B" }"#);
 
-    let j = r#"{
-            "t": "B"
-        }
-        "#;
-    let actual_serde: EnumWithOptionData = serde_json::from_str(j).unwrap();
-    let expected = EnumWithOptionData::B {
-        x: create_default_option_string(),
-        y: create_default_u8(),
-    };
-    assert_eq!(actual_serde, expected);
-
-    let actual_jayson: EnumWithOptionData = json::from_str(j).unwrap();
-    assert_eq!(actual_jayson, expected);
-
-    let j = r#"{
+    // enum with optional and defaultable data inside variant, all fields present
+    compare_with_serde::<EnumWithOptionData>(
+        r#"{
             "t": "B",
             "x": null,
             "y": 10
         }
-        "#;
-    let actual_serde: EnumWithOptionData = serde_json::from_str(j).unwrap();
-    let expected = EnumWithOptionData::B { x: None, y: 10 };
-    assert_eq!(actual_serde, expected);
-
-    let actual_jayson: EnumWithOptionData = json::from_str(j).unwrap();
-    assert_eq!(actual_jayson, expected);
+        "#,
+    );
 }
