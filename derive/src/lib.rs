@@ -282,12 +282,7 @@ impl DataAttrs {
                                                 nested.span(),
                                                 "Unexpected attribute",
                                             ))
-                                        } // _ => {
-                                          //     return Err(Error::new(
-                                          //         nested.span(),
-                                          //         "Unexpected attribute",
-                                          //     ))
-                                          // }
+                                        }
                                     }
                                 }
                                 syn::NestedMeta::Lit(lit) => {

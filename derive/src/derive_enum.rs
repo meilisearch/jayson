@@ -36,11 +36,7 @@ impl<'a> Variant<'a> {
                     }
                 })
             }
-            Variant::Named {
-                name,
-                fields,
-                // attrs,
-            } => {
+            Variant::Named { name, fields, .. } => {
                 let name_str = str_name(name.to_string(), rename_all, None);
                 let field_defaults = fields.iter().map(|f| {
                     if let Some(default) = &f.attrs.default {
