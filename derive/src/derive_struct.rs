@@ -2,19 +2,23 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{parse_quote, DeriveInput, Error, FieldsNamed, Generics, Ident};
 
-use crate::{bound, str_name, DataAttrs, Fields};
+use crate::{
+    attribute_parser::JaysonDataAttributes,
+    attribute_parser::{read_jayson_data_attributes, JaysonDefaultFieldAttribute},
+    bound, str_name, Fields,
+};
 
 #[derive(Debug)]
 pub struct DerivedStruct<'a> {
     name: &'a Ident,
     fields: Fields<'a>,
-    attrs: DataAttrs,
+    attrs: JaysonDataAttributes,
     generics: &'a Generics,
 }
 
 impl<'a> DerivedStruct<'a> {
     pub fn parse(input: &'a DeriveInput, fields: &'a FieldsNamed) -> syn::Result<Self> {
-        let attrs = DataAttrs::parse(&input.attrs, false)?;
+        let attrs = read_jayson_data_attributes(&input.attrs)?;
         let fields = Fields::parse(fields)?;
         let name = &input.ident;
         let generics = &input.generics;
@@ -37,10 +41,11 @@ impl<'a> DerivedStruct<'a> {
 
         let ident = self.name;
 
-        let err_ty: syn::Type =
-            syn::parse_str(self.attrs.err_ty.as_ref().ok_or_else(|| {
-                Error::new(Span::call_site(), "Missing ascociasted error type.")
-            })?)?;
+        let err_ty: &syn::Type = self
+            .attrs
+            .err_ty
+            .as_ref()
+            .ok_or_else(|| Error::new(Span::call_site(), "Missing associated error type."))?;
 
         let bound = parse_quote!(jayson::Deserialize);
         let bounded_where_clause = bound::where_clause_with_bound(&self.generics, bound);
@@ -57,10 +62,11 @@ impl<'a> DerivedStruct<'a> {
             .fields
             .iter()
             .map(|f| {
+                let renamed = f.attrs.rename.as_ref().map(|i| i.to_string());
                 str_name(
                     f.field_name.to_string(),
                     self.attrs.rename_all.as_ref(),
-                    f.attrs.rename.as_deref(),
+                    renamed.as_deref(),
                 )
             })
             .collect::<Vec<_>>();
@@ -68,9 +74,17 @@ impl<'a> DerivedStruct<'a> {
 
         let field_defaults = self.fields.iter().map(|f| {
             if let Some(default) = &f.attrs.default {
-                let default = str::parse::<proc_macro2::TokenStream>(default).unwrap();
-                quote! {
-                    jayson::__private::Option::Some(#default ())
+                match default {
+                    JaysonDefaultFieldAttribute::DefaultTrait => {
+                        quote! {
+                            jayson::__private::Option::Some(::std::default::Default::default())
+                        }
+                    }
+                    JaysonDefaultFieldAttribute::Function(expr) => {
+                        quote! {
+                            jayson::__private::Option::Some(#expr)
+                        }
+                    }
                 }
             } else {
                 quote! {

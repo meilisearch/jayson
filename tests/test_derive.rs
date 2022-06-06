@@ -3,14 +3,14 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
 #[serde(tag = "sometag")]
-#[jayson(error = "Error", tag = "sometag")]
+#[jayson(error = Error, tag = "sometag")]
 enum Tag {
     A,
     B,
 }
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
-#[jayson(error = "Error")]
+#[jayson(error = Error)]
 struct Example {
     x: String,
     t1: Tag,
@@ -19,19 +19,21 @@ struct Example {
 }
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
-#[jayson(error = "Error")]
+#[jayson(error = Error)]
 struct Nested {
     y: Option<Vec<String>>,
     z: Option<String>,
 }
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
-#[jayson(error = "Error")]
+#[jayson(error = Error)]
 struct StructWithDefaultAttr {
     x: bool,
     #[serde(default = "create_default_u8")]
+    #[jayson(default = create_default_u8())]
     y: u8,
     #[serde(default = "create_default_option_string")]
+    #[jayson(default = create_default_option_string())]
     z: Option<String>,
 }
 fn create_default_u8() -> u8 {
@@ -43,40 +45,51 @@ fn create_default_option_string() -> Option<String> {
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
 #[serde(tag = "t")]
-#[jayson(error = "Error", tag = "t")]
+#[jayson(error = Error, tag = "t")]
 enum EnumWithOptionData {
     A {
         x: Option<u8>,
     },
     B {
         #[serde(default = "create_default_option_string")]
+        #[jayson(default = create_default_option_string())]
         x: Option<String>,
         #[serde(default = "create_default_u8")]
+        #[jayson(default = create_default_u8())]
         y: u8,
     },
 }
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
-#[jayson(error = "Error")]
+#[jayson(error = Error, rename_all = camelCase)]
 #[serde(rename_all = "camelCase")]
 struct RenamedAllCamelCaseStruct {
     renamed_field: bool,
 }
 #[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
-#[jayson(error = "Error")]
+#[jayson(error = Error, rename_all = lowercase)]
 #[serde(rename_all = "lowercase")]
 struct RenamedAllLowerCaseStruct {
     renamed_field: bool,
 }
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
-#[jayson(error = "Error")]
+#[jayson(error = Error, tag = "t", rename_all = camelCase)]
 #[serde(tag = "t")]
 #[serde(rename_all = "camelCase")]
 enum RenamedAllCamelCaseEnum {
     SomeField { my_field: bool },
 }
 
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
+#[jayson(error = Error)]
+struct StructWithRenamedField {
+    #[jayson(rename = renamed_field)]
+    #[serde(rename = "renamed_field")]
+    x: bool,
+}
+
+#[track_caller]
 fn compare_with_serde_roundtrip<T>(x: T)
 where
     T: Serialize + Jayson + PartialEq + std::fmt::Debug,
@@ -156,4 +169,6 @@ fn test_de() {
         }
         "#,
     );
+
+    compare_with_serde_roundtrip(StructWithRenamedField { x: true });
 }

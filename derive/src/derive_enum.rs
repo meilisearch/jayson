@@ -4,13 +4,17 @@ use syn::{
     parse_quote, punctuated::Punctuated, token::Comma, DeriveInput, Error, Generics, Ident, Type,
 };
 
-use crate::{bound, str_name, DataAttrs, Fields, RenameAll};
+use crate::{
+    attribute_parser::JaysonDataAttributes,
+    attribute_parser::{read_jayson_data_attributes, JaysonDefaultFieldAttribute},
+    bound, str_name, Fields, RenameAll,
+};
 
 #[derive(Debug)]
 pub struct DerivedEnum<'a> {
     name: &'a Ident,
     generics: &'a Generics,
-    attrs: DataAttrs,
+    attrs: JaysonDataAttributes,
     variants: Vec<Variant<'a>>,
 }
 
@@ -40,9 +44,19 @@ impl<'a> Variant<'a> {
                 let name_str = str_name(name.to_string(), rename_all, None);
                 let field_defaults = fields.iter().map(|f| {
                     if let Some(default) = &f.attrs.default {
-                        let default = str::parse::<proc_macro2::TokenStream>(default).unwrap();
-                        quote! {
-                            jayson::__private::Option::Some(#default ())
+                        match default {
+                            JaysonDefaultFieldAttribute::DefaultTrait => {
+                                quote! {
+                                    jayson::__private::Option::Some(::std::default::Default::default())
+                                }
+                            }
+                            JaysonDefaultFieldAttribute::Function(
+                                expr,
+                            ) => {
+                                quote! {
+                                    jayson::__private::Option::Some(#expr)
+                                }
+                            }
                         }
                     } else {
                         quote! {
@@ -52,7 +66,11 @@ impl<'a> Variant<'a> {
                 });
                 let field_impls = fields.iter().map(|f| {
                     let ident = f.field_name;
-                    let name = str_name(f.field_name.to_string(), None, f.attrs.rename.as_deref());
+                    let name = str_name(
+                        f.field_name.to_string(),
+                        None,
+                        f.attrs.rename.as_ref().map(|i| i.to_string()).as_deref(),
+                    );
 
                     quote! {
                         let mut #ident = jayson::__private::None;
@@ -115,7 +133,7 @@ impl<'a> DerivedEnum<'a> {
     ) -> syn::Result<Self> {
         let name = &input.ident;
         let generics = &input.generics;
-        let attrs = DataAttrs::parse(&input.attrs, true)?;
+        let attrs = read_jayson_data_attributes(&input.attrs)?;
         let variants = Self::parse_variants(variants)?;
 
         Ok(Self {
@@ -140,10 +158,11 @@ impl<'a> DerivedEnum<'a> {
             &format!("_IMPL_JAYSON_FOR_{}", self.name),
             Span::call_site(),
         );
-        let err_ty: Type =
-            syn::parse_str(self.attrs.err_ty.as_ref().ok_or_else(|| {
-                Error::new(Span::call_site(), "Missing ascociasted error type.")
-            })?)?;
+        let err_ty: &Type = self
+            .attrs
+            .err_ty
+            .as_ref()
+            .ok_or_else(|| Error::new(Span::call_site(), "Missing associated error type."))?;
 
         let variant_match_branch = self
             .variants
