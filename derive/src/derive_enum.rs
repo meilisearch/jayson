@@ -16,14 +16,8 @@ pub struct DerivedEnum<'a> {
 
 #[derive(Debug)]
 enum Variant<'a> {
-    Unit {
-        name: &'a Ident,
-    },
-    Named {
-        name: &'a Ident,
-        fields: Fields<'a>,
-        attrs: DataAttrs,
-    },
+    Unit { name: &'a Ident },
+    Named { name: &'a Ident, fields: Fields<'a> },
 }
 
 impl<'a> Variant<'a> {
@@ -42,30 +36,32 @@ impl<'a> Variant<'a> {
                     }
                 })
             }
-            Variant::Named {
-                name,
-                fields,
-                attrs,
-            } => {
+            Variant::Named { name, fields, .. } => {
                 let name_str = str_name(name.to_string(), rename_all, None);
+                let field_defaults = fields.iter().map(|f| {
+                    if let Some(default) = &f.attrs.default {
+                        let default = str::parse::<proc_macro2::TokenStream>(default).unwrap();
+                        quote! {
+                            jayson::__private::Option::Some(#default ())
+                        }
+                    } else {
+                        quote! {
+                            jayson::Jayson::<#err_ty>::default()
+                        }
+                    }
+                });
                 let field_impls = fields.iter().map(|f| {
                     let ident = f.field_name;
-                    // TODO: handle rename all
-                    let name = str_name(
-                        f.field_name.to_string(),
-                        attrs.rename_all.as_ref(),
-                        f.attrs.rename.as_deref(),
-                    );
+                    let name = str_name(f.field_name.to_string(), None, f.attrs.rename.as_deref());
+
                     quote! {
                         let mut #ident = jayson::__private::None;
                         let v = jayson::Jayson::begin(&mut #ident);
-                        let val = std::mem::replace(
-                            self.object
-                                .get_mut(#name)
-                                .ok_or_else(|| #err_ty::missing_field(#name))?,
-                            jayson::json::Value::Null,
-                        );
-                        jayson::__private::apply_object_to_visitor(v, val)?;
+
+                        if let jayson::__private::Option::Some(val) = self.object.get_mut(#name) {
+                            let val = std::mem::replace(val, jayson::json::Value::Null);
+                            jayson::__private::apply_object_to_visitor(v, val)?;
+                        }
                     }
                 });
 
@@ -75,7 +71,9 @@ impl<'a> Variant<'a> {
                         #(#field_impls)*
                         self.__out.replace(#enum_ident::#name {
                             #(
-                                #field_names: #field_names.unwrap(),
+                                #field_names: #field_names
+                                    .or_else(|| #field_defaults)
+                                    .ok_or_else(|| #err_ty::missing_field(#name_str))?,
                             )*
                         });
                     }
@@ -95,13 +93,7 @@ impl<'a> DerivedEnum<'a> {
                 syn::Fields::Named(ref named) => {
                     let name = &variant.ident;
                     let fields = Fields::parse(named)?;
-                    let attrs = DataAttrs::parse(&variant.attrs, false)?;
-
-                    Variant::Named {
-                        name,
-                        fields,
-                        attrs,
-                    }
+                    Variant::Named { name, fields }
                 }
                 syn::Fields::Unit => {
                     let name = &variant.ident;
