@@ -14,7 +14,7 @@ use std::fmt::LowerHex;
 /// use jayson::de::VisitorError;
 ///
 /// #[derive(Jayson, Debug)]
-/// #[jayson(error = "Error")]
+/// #[jayson(error = Error)]
 /// struct Example {
 ///     code: u32,
 ///     message: String,

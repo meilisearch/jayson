@@ -1,7 +1,7 @@
 use jayson::{de::VisitorError, json, Error, Jayson};
 
 #[derive(Jayson)]
-#[jayson(error = "Error")]
+#[jayson(error = Error)]
 pub struct Point {
     pub x: u32,
     pub y: u32,
