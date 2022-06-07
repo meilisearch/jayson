@@ -87,7 +87,7 @@ impl<'a> Variant<'a> {
 
                 let unknown_key = match deny_unknown_fields {
                     Some(DenyUnknownFields::DefaultError) => quote! {
-                        return jayson::__private::Err(<#err_ty>::unexpected("Found unexpected field: {key}"));
+                        return jayson::__private::Err(<#err_ty>::unexpected(format!("Found unexpected field: {key}")));
                     },
                     Some(DenyUnknownFields::Function(func)) => quote! {
                         return jayson::__private::Err(#func (key));

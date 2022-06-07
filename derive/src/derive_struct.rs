@@ -98,9 +98,11 @@ impl<'a> DerivedStruct<'a> {
         });
 
         let unknown_key = match &self.attrs.deny_unknown_fields {
-            Some(DenyUnknownFields::DefaultError) => quote! {
-                jayson::__private::Err(<#err_ty as jayson::de::VisitorError>::unexpected("Found unexpected field: {key}"))
-            },
+            Some(DenyUnknownFields::DefaultError) => {
+                quote! {
+                    jayson::__private::Err(<#err_ty as jayson::de::VisitorError>::unexpected(&format!("Found unexpected field: {}", key)))
+                }
+            }
             Some(DenyUnknownFields::Function(func)) => quote! {
                 jayson::__private::Err(#func (key))
             },
