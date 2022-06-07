@@ -1,26 +1,51 @@
 #![feature(test)]
+#![feature(bench_black_box)]
 #![allow(clippy::struct_excessive_bools)]
 
 extern crate test;
 
-use jayson::Jayson as MiniDeserialize;
+use jayson::Jayson;
 use serde_derive::{Deserialize, Serialize};
 use test::Bencher;
 
-fn input_json() -> String {
-    std::fs::read_to_string("benches/twitter.json").unwrap()
+#[derive(Debug)]
+pub enum MyError {
+    Unexpected(String),
+    MissingField(String),
+    Format {
+        line: usize,
+        pos: usize,
+        msg: String,
+    },
+    UnknownKey(String),
+}
+impl jayson::de::VisitorError for MyError {
+    fn unexpected(s: &str) -> Self {
+        Self::Unexpected(s.to_owned())
+    }
+
+    fn format_error(line: usize, pos: usize, msg: &str) -> Self {
+        Self::Format {
+            line,
+            pos,
+            msg: msg.to_owned(),
+        }
+    }
+
+    fn missing_field(field: &str) -> Self {
+        Self::MissingField(field.to_owned())
+    }
 }
 
-fn input_struct() -> Twitter {
-    let j = input_json();
-    serde_json::from_str(&j).unwrap()
+fn input_json() -> String {
+    std::fs::read_to_string("benches/twitter.json").unwrap()
 }
 
 #[bench]
 fn bench_deserialize_jayson(b: &mut Bencher) {
     let j = input_json();
     b.iter(|| {
-        jayson::json::from_str::<Twitter>(&j).unwrap();
+        jayson::json::from_str::<Twitter, _>(&j).unwrap();
     });
 }
 
@@ -31,30 +56,23 @@ fn bench_deserialize_serdejson(b: &mut Bencher) {
         serde_json::from_str::<Twitter>(&j).unwrap();
     });
 }
-
 #[bench]
-fn bench_serialize_jayson(b: &mut Bencher) {
-    let s = input_struct();
+fn bench_deserialize_serdejson_value(b: &mut Bencher) {
+    let j = input_json();
     b.iter(|| {
-        jayson::json::to_string(&s);
+        serde_json::from_str::<serde_json::Value>(&j).unwrap();
     });
 }
 
-#[bench]
-fn bench_serialize_serdejson(b: &mut Bencher) {
-    let s = input_struct();
-    b.iter(|| {
-        serde_json::to_string(&s).unwrap();
-    });
-}
-
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct Twitter {
     statuses: Vec<Status>,
     search_metadata: SearchMetadata,
 }
 
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct Status {
     metadata: Metadata,
     created_at: String,
@@ -83,13 +101,15 @@ struct Status {
     lang: String,
 }
 
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct Metadata {
     result_type: String,
     iso_language_code: String,
 }
 
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct User {
     id: u32,
     id_str: String,
@@ -133,18 +153,21 @@ struct User {
     notifications: bool,
 }
 
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct UserEntities {
     url: Option<UserUrl>,
     description: UserEntitiesDescription,
 }
 
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct UserUrl {
     urls: Vec<Url>,
 }
 
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct Url {
     url: String,
     expanded_url: String,
@@ -152,12 +175,14 @@ struct Url {
     indices: Indices,
 }
 
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct UserEntitiesDescription {
     urls: Vec<Url>,
 }
 
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct StatusEntities {
     hashtags: Vec<Hashtag>,
     symbols: Vec<()>,
@@ -166,13 +191,15 @@ struct StatusEntities {
     media: Option<Vec<Media>>,
 }
 
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct Hashtag {
     text: String,
     indices: Indices,
 }
 
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct UserMention {
     screen_name: String,
     name: String,
@@ -181,7 +208,8 @@ struct UserMention {
     indices: Indices,
 }
 
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct Media {
     id: u64,
     id_str: String,
@@ -191,6 +219,7 @@ struct Media {
     url: String,
     display_url: String,
     expanded_url: String,
+    #[jayson(rename = "type")]
     #[serde(rename = "type")]
     media_type: String,
     sizes: Sizes,
@@ -198,7 +227,8 @@ struct Media {
     source_status_id_str: Option<String>,
 }
 
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct Sizes {
     medium: Size,
     small: Size,
@@ -206,7 +236,8 @@ struct Sizes {
     large: Size,
 }
 
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct Size {
     w: u16,
     h: u16,
@@ -215,7 +246,8 @@ struct Size {
 
 type Indices = (u8, u8);
 
-#[derive(Serialize, MiniSerialize, Deserialize, MiniDeserialize)]
+#[derive(Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
 struct SearchMetadata {
     completed_in: f32,
     max_id: u64,
