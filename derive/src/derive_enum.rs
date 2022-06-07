@@ -102,13 +102,32 @@ impl<'a> Variant<'a> {
                     }
                 });
 
-                let field_matches = fields.iter().map(|f| {
+                let fieldstrs = fields
+                    .iter()
+                    .map(|f| {
+                        str_name(
+                            f.field_name.to_string(),
+                            self.attributes().rename_all.as_ref(),
+                            f.attrs.rename.as_ref().map(|i| i.value()).as_deref(),
+                        )
+                    })
+                    .collect::<Vec<_>>();
+
+                let missing_field_errors =  fields
+                    .iter()
+                    .zip(fieldstrs.iter())
+                    .map(|(f, fieldstr)| match &f.attrs.missing_field_error {
+                        Some(error_expr) => {
+                            quote! { #error_expr }
+                        }
+                        None => {
+                            quote! { <#err_ty as jayson::de::VisitorError>::missing_field(#fieldstr) }
+                        }
+                    });
+
+                let field_matches = fields.iter().zip(fieldstrs.iter()).map(|(f, name)| {
                     let ident = f.field_name;
-                    let name = str_name(
-                        f.field_name.to_string(),
-                        self.attributes().rename_all.as_ref(),
-                        f.attrs.rename.as_ref().map(|i| i.value()).as_deref(),
-                    );
+
                     quote! {
                         #name => {
                             let v = jayson::Jayson::begin(&mut #ident);
@@ -139,7 +158,7 @@ impl<'a> Variant<'a> {
                             #(
                                 #field_names: #field_names
                                     .or_else(|| #field_defaults)
-                                    .ok_or_else(|| #err_ty::missing_field(#name_str))?,
+                                    .ok_or_else(|| { #missing_field_errors })?,
                             )*
                         });
                     }

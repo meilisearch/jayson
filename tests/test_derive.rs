@@ -1,7 +1,7 @@
 use jayson::{de::VisitorError, json, Jayson};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum MyError {
     Unexpected(String),
     MissingField(String),
@@ -11,6 +11,7 @@ pub enum MyError {
         msg: String,
     },
     UnknownKey(String),
+    CustomMissingField(u8),
 }
 impl jayson::de::VisitorError for MyError {
     fn unexpected(s: &str) -> Self {
@@ -169,6 +170,27 @@ enum EnumDenyUnknownFieldsCustom {
     Other { my_field: bool, y: u8 },
 }
 
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError)]
+struct StructMissingFieldError {
+    #[jayson(missing_field_error = MyError::CustomMissingField(0))]
+    x: bool,
+    #[jayson(missing_field_error = MyError::CustomMissingField(1))]
+    y: bool,
+}
+
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
+#[jayson(error = MyError, tag = "t")]
+enum EnumMissingFieldError {
+    A {
+        #[jayson(missing_field_error = MyError::CustomMissingField(0))]
+        x: bool,
+    },
+    B {
+        x: bool,
+    },
+}
+
 #[track_caller]
 fn compare_with_serde_roundtrip<T>(x: T)
 where
@@ -183,7 +205,7 @@ where
 #[track_caller]
 fn compare_with_serde<T>(j: &str)
 where
-    T: DeserializeOwned + Serialize + Jayson<MyError> + PartialEq + std::fmt::Debug,
+    T: DeserializeOwned + Jayson<MyError> + PartialEq + std::fmt::Debug,
 {
     let actual_serde: Result<T, _> = serde_json::from_str(j);
     let actual_jayson: Result<T, _> = json::from_str(j);
@@ -197,6 +219,14 @@ where
     }
 }
 
+#[track_caller]
+fn assert_error_matches<T>(j: &str, expected: MyError)
+where
+    T: Jayson<MyError> + PartialEq + std::fmt::Debug,
+{
+    let actual: MyError = json::from_str::<T, _>(j).unwrap_err();
+    assert_eq!(actual, expected);
+}
 #[test]
 fn test_de() {
     // arbitrary struct, roundtrip
@@ -335,16 +365,50 @@ fn test_de() {
         }
         "#,
     );
-    {
-        // enum with deny_unknown_fields with custom error function
-        // assert error value is correct
-        let j = r#"{
+
+    // enum with deny_unknown_fields with custom error function, error check
+    assert_error_matches::<EnumDenyUnknownFieldsCustom>(
+        r#"{
             "t": "SomeField",
             "my_field": true,
             "other": true
         }
-        "#;
-        let err: MyError = json::from_str::<EnumDenyUnknownFieldsCustom, _>(j).unwrap_err();
-        assert!(matches!(err, MyError::UnknownKey(x) if x == "other"));
-    }
+        "#,
+        MyError::UnknownKey("other".to_owned()),
+    );
+
+    // struct with custom missing field error, error check 1
+    assert_error_matches::<StructMissingFieldError>(
+        r#"{
+            "y": true
+        }
+        "#,
+        MyError::CustomMissingField(0),
+    );
+    // struct with custom missing field error, error check 2
+    assert_error_matches::<StructMissingFieldError>(
+        r#"{
+            "x": true
+        }
+        "#,
+        MyError::CustomMissingField(1),
+    );
+
+    // enum with custom missing field error, error check 1
+    assert_error_matches::<EnumMissingFieldError>(
+        r#"{
+            "t": "A"
+        }
+        "#,
+        MyError::CustomMissingField(0),
+    );
+
+    // enum with custom missing field error, error check 2
+    assert_error_matches::<EnumMissingFieldError>(
+        r#"{
+            "t": "B"
+        }
+        "#,
+        MyError::MissingField("x".to_owned()),
+    );
 }

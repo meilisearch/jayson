@@ -11,6 +11,7 @@ pub enum JaysonDefaultFieldAttribute {
 pub struct JaysonFieldAttributes {
     pub rename: Option<LitStr>,
     pub default: Option<JaysonDefaultFieldAttribute>,
+    pub missing_field_error: Option<Expr>,
 }
 
 impl JaysonFieldAttributes {
@@ -20,6 +21,9 @@ impl JaysonFieldAttributes {
         }
         if let Some(default) = other.default {
             self.default = Some(default)
+        }
+        if let Some(missing_field_error) = other.missing_field_error {
+            self.missing_field_error = Some(missing_field_error)
         }
     }
 }
@@ -54,6 +58,12 @@ impl syn::parse::Parse for JaysonFieldAttributes {
                     } else {
                         this.default = Some(JaysonDefaultFieldAttribute::DefaultTrait);
                     }
+                }
+                "missing_field_error" => {
+                    let _eq = input.parse::<Token![=]>()?;
+                    let expr = input.parse::<Expr>()?;
+                    // #[jayson( ... missing_field_error = expr )]
+                    this.missing_field_error = Some(expr);
                 }
                 _ => {
                     let message = format!("Unknown jayson attribute: {}", attr_name);

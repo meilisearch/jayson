@@ -109,6 +109,19 @@ impl<'a> DerivedStruct<'a> {
             },
         };
 
+        let missing_field_errors = self
+            .fields
+            .iter()
+            .zip(fieldstr.iter())
+            .map(|(f, fieldstr)| match &f.attrs.missing_field_error {
+                Some(error_expr) => {
+                    quote! { #error_expr }
+                }
+                None => {
+                    quote! { <#err_ty as jayson::de::VisitorError>::missing_field(#fieldstr) }
+                }
+            });
+
         Ok(quote! {
             #[allow(non_upper_case_globals)]
             const #dummy: () = {
@@ -153,7 +166,7 @@ impl<'a> DerivedStruct<'a> {
 
                     fn finish(&mut self) -> jayson::__private::Result<(), #err_ty> {
                         #(
-                            let #fieldname = self.#fieldname.take().ok_or(<#err_ty as jayson::de::VisitorError>::missing_field(#fieldstr))?;
+                            let #fieldname = self.#fieldname.take().ok_or(#missing_field_errors)?;
                         )*
                         *self.__out = jayson::__private::Some(#ident {
                             #(
