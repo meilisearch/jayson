@@ -9,7 +9,7 @@ pub enum JaysonDefaultFieldAttribute {
 
 #[derive(Default, Debug)]
 pub struct JaysonFieldAttributes {
-    pub rename: Option<Ident>,
+    pub rename: Option<LitStr>,
     pub default: Option<JaysonDefaultFieldAttribute>,
 }
 
@@ -41,7 +41,7 @@ impl syn::parse::Parse for JaysonFieldAttributes {
             match attr_name.to_string().as_str() {
                 "rename" => {
                     let _eq = input.parse::<Token![=]>()?;
-                    let ident = input.parse::<Ident>()?;
+                    let ident = input.parse::<LitStr>()?;
                     // #[jayson( ... rename = ident )]
                     this.rename = Some(ident);
                 }

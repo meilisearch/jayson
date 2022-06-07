@@ -19,6 +19,8 @@ pub struct DerivedStruct<'a> {
 impl<'a> DerivedStruct<'a> {
     pub fn parse(input: &'a DeriveInput, fields: &'a FieldsNamed) -> syn::Result<Self> {
         let attrs = read_jayson_data_attributes(&input.attrs)?;
+        // TODO: error message if "tag" is present
+
         let fields = Fields::parse(fields)?;
         let name = &input.ident;
         let generics = &input.generics;
@@ -62,7 +64,7 @@ impl<'a> DerivedStruct<'a> {
             .fields
             .iter()
             .map(|f| {
-                let renamed = f.attrs.rename.as_ref().map(|i| i.to_string());
+                let renamed = f.attrs.rename.as_ref().map(|i| i.value());
                 str_name(
                     f.field_name.to_string(),
                     self.attrs.rename_all.as_ref(),
@@ -137,7 +139,7 @@ impl<'a> DerivedStruct<'a> {
 
                     fn finish(&mut self) -> jayson::__private::Result<(), #err_ty> {
                         #(
-                            let #fieldname = self.#fieldname.take().ok_or(#err_ty::missing_field(#fieldstr))?;
+                            let #fieldname = self.#fieldname.take().ok_or(<#err_ty as jayson::de::VisitorError>::missing_field(#fieldstr))?;
                         )*
                         *self.__out = jayson::__private::Some(#ident {
                             #(

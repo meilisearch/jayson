@@ -36,6 +36,14 @@ struct StructWithDefaultAttr {
     #[jayson(default = create_default_option_string())]
     z: Option<String>,
 }
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
+#[jayson(error = Error)]
+struct StructWithTraitDefaultAttr {
+    #[serde(default)]
+    #[jayson(default)]
+    y: u8,
+}
+
 fn create_default_u8() -> u8 {
     152
 }
@@ -82,9 +90,18 @@ enum RenamedAllCamelCaseEnum {
 }
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
+#[jayson(error = Error, tag = "t")]
+#[serde(tag = "t")]
+enum RenamedAllFieldsCamelCaseEnum {
+    #[jayson(rename_all = camelCase)]
+    #[serde(rename_all = "camelCase")]
+    SomeField { my_field: bool },
+}
+
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
 #[jayson(error = Error)]
 struct StructWithRenamedField {
-    #[jayson(rename = renamed_field)]
+    #[jayson(rename = "renamed_field")]
     #[serde(rename = "renamed_field")]
     x: bool,
 }
@@ -100,6 +117,7 @@ where
     assert_eq!(actual_jayson, x);
 }
 
+#[track_caller]
 fn compare_with_serde<T>(j: &str)
 where
     T: DeserializeOwned + Serialize + Jayson + PartialEq + std::fmt::Debug,
@@ -135,6 +153,9 @@ fn test_de() {
     // enum rename all variants camel case, roundtrip
     compare_with_serde_roundtrip(RenamedAllCamelCaseEnum::SomeField { my_field: true });
 
+    // struct with renamed field, roundtrip
+    compare_with_serde_roundtrip(RenamedAllFieldsCamelCaseEnum::SomeField { my_field: true });
+
     // struct default attributes serde, roundtrip
     compare_with_serde_roundtrip(StructWithDefaultAttr {
         x: true,
@@ -150,6 +171,9 @@ fn test_de() {
         }
         "#,
     );
+
+    // struct default attribute using Default trait, missing field
+    compare_with_serde::<StructWithTraitDefaultAttr>(r#"{ }"#);
 
     // enum with optional data inside variant, roundtrip
     compare_with_serde_roundtrip(EnumWithOptionData::A { x: None });
@@ -170,5 +194,6 @@ fn test_de() {
         "#,
     );
 
+    // struct with renamed field, roundtrip
     compare_with_serde_roundtrip(StructWithRenamedField { x: true });
 }

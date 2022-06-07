@@ -20,8 +20,24 @@ pub struct DerivedEnum<'a> {
 
 #[derive(Debug)]
 enum Variant<'a> {
-    Unit { name: &'a Ident },
-    Named { name: &'a Ident, fields: Fields<'a> },
+    Unit {
+        name: &'a Ident,
+        attributes: JaysonDataAttributes,
+    },
+    Named {
+        name: &'a Ident,
+        fields: Fields<'a>,
+        attributes: JaysonDataAttributes,
+    },
+}
+
+impl<'a> Variant<'a> {
+    fn attributes(&self) -> &JaysonDataAttributes {
+        match self {
+            Variant::Unit { attributes, .. } => attributes,
+            Variant::Named { attributes, .. } => attributes,
+        }
+    }
 }
 
 impl<'a> Variant<'a> {
@@ -32,7 +48,7 @@ impl<'a> Variant<'a> {
         rename_all: Option<&RenameAll>,
     ) -> syn::Result<TokenStream> {
         match self {
-            Variant::Unit { name } => {
+            Variant::Unit { name, .. } => {
                 let name_str = str_name(name.to_string(), rename_all, None);
                 Ok(quote! {
                     #name_str => {
@@ -68,8 +84,8 @@ impl<'a> Variant<'a> {
                     let ident = f.field_name;
                     let name = str_name(
                         f.field_name.to_string(),
-                        None,
-                        f.attrs.rename.as_ref().map(|i| i.to_string()).as_deref(),
+                        self.attributes().rename_all.as_ref(),
+                        f.attrs.rename.as_ref().map(|i| i.value()).as_deref(),
                     );
 
                     quote! {
@@ -109,14 +125,21 @@ impl<'a> DerivedEnum<'a> {
         for variant in variants.iter() {
             let variant = match variant.fields {
                 syn::Fields::Named(ref named) => {
+                    let attributes = read_jayson_data_attributes(&variant.attrs)?;
+                    // TODO: return error when tag or error is present
                     let name = &variant.ident;
                     let fields = Fields::parse(named)?;
-                    Variant::Named { name, fields }
+                    Variant::Named {
+                        name,
+                        fields,
+                        attributes,
+                    }
                 }
                 syn::Fields::Unit => {
                     let name = &variant.ident;
-
-                    Variant::Unit { name }
+                    let attributes = read_jayson_data_attributes(&variant.attrs)?;
+                    // TODO: return error when tag or error or rename_all is present
+                    Variant::Unit { name, attributes }
                 }
                 syn::Fields::Unnamed(_) => unimplemented!("unsupported unit struct variant"),
             };
