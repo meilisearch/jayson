@@ -305,9 +305,9 @@ impl<'a> DerivedEnum<'a> {
                         match self.object.get(#tag_name).and_then(|o| o.as_str()) {
                             Some(variant) => match variant {
                                 #(#variant_match_branch)*
-                                found => return Err(#err_ty::unexpected(&format!("unexpected value for `{}`: `{}`", #tag_name ,found))),
+                                found => return Err(<#err_ty as jayson::de::VisitorError>::unexpected(&format!("unexpected value for `{}`: `{}`", #tag_name ,found))),
                             }
-                            None => return Err(#err_ty::missing_field(#tag_name)),
+                            None => return Err(<#err_ty as jayson::de::VisitorError>::missing_field(#tag_name)),
                         }
 
                         Ok(())
