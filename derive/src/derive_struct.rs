@@ -4,7 +4,9 @@ use syn::{parse_quote, DeriveInput, Error, FieldsNamed, Generics, Ident};
 
 use crate::{
     attribute_parser::JaysonDataAttributes,
-    attribute_parser::{read_jayson_data_attributes, JaysonDefaultFieldAttribute},
+    attribute_parser::{
+        read_jayson_data_attributes, DenyUnknownFields, JaysonDefaultFieldAttribute,
+    },
     bound, str_name, Fields,
 };
 
@@ -95,6 +97,18 @@ impl<'a> DerivedStruct<'a> {
             }
         });
 
+        let unknown_key = match &self.attrs.deny_unknown_fields {
+            Some(DenyUnknownFields::DefaultError) => quote! {
+                jayson::__private::Err(<#err_ty>::unexpected("Found unexpected field: {key}"))
+            },
+            Some(DenyUnknownFields::Function(func)) => quote! {
+                jayson::__private::Err(#func (key))
+            },
+            None => quote! {
+                jayson::__private::Ok(<dyn jayson::de::Visitor<#err_ty>>::ignore())
+            },
+        };
+
         Ok(quote! {
             #[allow(non_upper_case_globals)]
             const #dummy: () = {
@@ -133,7 +147,7 @@ impl<'a> DerivedStruct<'a> {
                             #(
                                 #fieldstr => jayson::__private::Ok(jayson::Jayson::begin(&mut self.#fieldname)),
                             )*
-                            _ => jayson::__private::Ok(<dyn jayson::de::Visitor<#err_ty>>::ignore()),
+                            key => #unknown_key
                         }
                     }
 

@@ -1,5 +1,5 @@
 use proc_macro2::Ident;
-use syn::{parenthesized, parse::ParseStream, parse2, Attribute, Expr, LitStr, Token};
+use syn::{parenthesized, parse::ParseStream, parse2, Attribute, Expr, ExprPath, LitStr, Token};
 
 #[derive(Debug)]
 pub enum JaysonDefaultFieldAttribute {
@@ -112,11 +112,18 @@ impl Default for TagType {
     }
 }
 
+#[derive(Debug)]
+pub enum DenyUnknownFields {
+    DefaultError,
+    Function(syn::ExprPath),
+}
+
 #[derive(Default, Debug)]
 pub struct JaysonDataAttributes {
     pub rename_all: Option<RenameAll>,
     pub err_ty: Option<syn::Type>,
     pub tag: TagType,
+    pub deny_unknown_fields: Option<DenyUnknownFields>,
 }
 impl JaysonDataAttributes {
     fn overwrite(&mut self, other: Self) {
@@ -128,6 +135,9 @@ impl JaysonDataAttributes {
         }
         if let TagType::Internal(x) = other.tag {
             self.tag = TagType::Internal(x)
+        }
+        if let Some(x) = other.deny_unknown_fields {
+            self.deny_unknown_fields = Some(x)
         }
     }
 }
@@ -170,6 +180,16 @@ impl syn::parse::Parse for JaysonDataAttributes {
                     let err_ty = input.parse::<syn::Type>()?;
                     // #[jayson( ... error = err_ty )]
                     this.err_ty = Some(err_ty);
+                }
+                "deny_unknown_fields" => {
+                    if input.peek(Token![=]) {
+                        let _eq = input.parse::<Token![=]>()?;
+                        let func = input.parse::<ExprPath>()?;
+                        // #[jayson( ... deny_unknown_fields = func )]
+                        this.deny_unknown_fields = Some(DenyUnknownFields::Function(func));
+                    } else {
+                        this.deny_unknown_fields = Some(DenyUnknownFields::DefaultError);
+                    }
                 }
                 _ => {
                     let message = format!("Unknown jayson attribute: {}", attr_name);

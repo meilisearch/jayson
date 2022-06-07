@@ -6,7 +6,9 @@ use syn::{
 
 use crate::{
     attribute_parser::JaysonDataAttributes,
-    attribute_parser::{read_jayson_data_attributes, JaysonDefaultFieldAttribute},
+    attribute_parser::{
+        read_jayson_data_attributes, DenyUnknownFields, JaysonDefaultFieldAttribute,
+    },
     bound, str_name, Fields, RenameAll,
 };
 
@@ -45,7 +47,9 @@ impl<'a> Variant<'a> {
         &self,
         enum_ident: &Ident,
         err_ty: &Type,
+        tag_name: &str,
         rename_all: Option<&RenameAll>,
+        deny_unknown_fields: Option<&DenyUnknownFields>,
     ) -> syn::Result<TokenStream> {
         match self {
             Variant::Unit { name, .. } => {
@@ -80,29 +84,57 @@ impl<'a> Variant<'a> {
                         }
                     }
                 });
-                let field_impls = fields.iter().map(|f| {
+
+                let unknown_key = match deny_unknown_fields {
+                    Some(DenyUnknownFields::DefaultError) => quote! {
+                        return jayson::__private::Err(<#err_ty>::unexpected("Found unexpected field: {key}"));
+                    },
+                    Some(DenyUnknownFields::Function(func)) => quote! {
+                        return jayson::__private::Err(#func (key));
+                    },
+                    None => quote! {},
+                };
+
+                let field_idents_decl = fields.iter().map(|f| {
+                    let ident = f.field_name;
+                    quote! {
+                        let mut #ident = jayson::__private::None;
+                    }
+                });
+
+                let field_matches = fields.iter().map(|f| {
                     let ident = f.field_name;
                     let name = str_name(
                         f.field_name.to_string(),
                         self.attributes().rename_all.as_ref(),
                         f.attrs.rename.as_ref().map(|i| i.value()).as_deref(),
                     );
-
                     quote! {
-                        let mut #ident = jayson::__private::None;
-                        let v = jayson::Jayson::begin(&mut #ident);
-
-                        if let jayson::__private::Option::Some(val) = self.object.get_mut(#name) {
-                            let val = std::mem::replace(val, jayson::json::Value::Null);
-                            jayson::__private::apply_object_to_visitor(v, val)?;
+                        #name => {
+                            let v = jayson::Jayson::begin(&mut #ident);
+                            let value = std::mem::replace(value, jayson::json::Value::Null);
+                            jayson::__private::apply_object_to_visitor(v, value)?;
                         }
                     }
                 });
 
+                let fields_impl = quote! {
+                    #(#field_idents_decl)*
+                    for (key, value) in self.object.iter_mut() {
+                        match key.as_str() {
+                            #(#field_matches)*
+                            #tag_name => {}
+                            key => {
+                                #unknown_key
+                            }
+                        }
+                    }
+                };
+
                 let field_names = fields.iter().map(|f| f.field_name);
                 Ok(quote! {
                     #name_str => {
-                        #(#field_impls)*
+                        #fields_impl
                         self.__out.replace(#enum_ident::#name {
                             #(
                                 #field_names: #field_names
@@ -126,7 +158,7 @@ impl<'a> DerivedEnum<'a> {
             let variant = match variant.fields {
                 syn::Fields::Named(ref named) => {
                     let attributes = read_jayson_data_attributes(&variant.attrs)?;
-                    // TODO: return error when tag or error is present
+                    // TODO: return error when tag or error or deny_unknown_fields is present
                     let name = &variant.ident;
                     let fields = Fields::parse(named)?;
                     Variant::Named {
@@ -138,7 +170,7 @@ impl<'a> DerivedEnum<'a> {
                 syn::Fields::Unit => {
                     let name = &variant.ident;
                     let attributes = read_jayson_data_attributes(&variant.attrs)?;
-                    // TODO: return error when tag or error or rename_all is present
+                    // TODO: return error when tag or error or rename_all or deny_unknown_fields is present
                     Variant::Unit { name, attributes }
                 }
                 syn::Fields::Unnamed(_) => unimplemented!("unsupported unit struct variant"),
@@ -190,7 +222,15 @@ impl<'a> DerivedEnum<'a> {
         let variant_match_branch = self
             .variants
             .iter()
-            .map(|v| v.gen(self.name, &err_ty, self.attrs.rename_all.as_ref()))
+            .map(|v| {
+                v.gen(
+                    self.name,
+                    &err_ty,
+                    tag_name,
+                    self.attrs.rename_all.as_ref(),
+                    self.attrs.deny_unknown_fields.as_ref(),
+                )
+            })
             .collect::<syn::Result<Vec<_>>>()?;
 
         let ident = self.name;
