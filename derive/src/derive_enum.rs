@@ -24,19 +24,26 @@ pub fn generate_derive_tagged_enum_impl(
 
     quote! {
          #impl_trait_tokens {
-            fn deserialize_from_value<V: jayson::Value>(value: V) -> ::std::result::Result<Self, #err_ty> {
-                let kind = value.kind();
+            fn deserialize_from_value<V: jayson::IntoValue>(value: jayson::Value<V>) -> ::std::result::Result<Self, #err_ty> {
+                match value {
+                    jayson::Value::Map(mut map) => {
+                        let tag_value = jayson::Map::remove(&mut map, #tag).ok_or_else(|| <#err_ty as jayson::DeserializeError>::missing_field(#tag))?;
 
-                let mut map = value.as_map().ok_or_else(|| <#err_ty as jayson::DeserializeError>::incorrect_value_kind(kind, &[jayson::ValueKind::Map]))?;
+                        let tag_value_string = if let jayson::Value::String(x) = tag_value.into_value() {
+                            x
+                        } else {
+                            return ::std::result::Result::Err(<#err_ty as jayson::DeserializeError>::unexpected("todo"));
+                        };
 
-                // get the tag value
-                let tag_value = jayson::Map::remove(&mut map, #tag).ok_or_else(|| <#err_ty as jayson::DeserializeError>::missing_field(#tag))?;
-                let tag_value_string = tag_value.as_string().ok_or_else(|| <#err_ty as jayson::DeserializeError>::unexpected("todo"))?;
-
-                match tag_value_string.as_str() {
-                    #(#variants_impls)*
+                        match tag_value_string.as_str() {
+                            #(#variants_impls)*
+                            _ => {
+                                ::std::result::Result::Err(<#err_ty as jayson::DeserializeError>::unexpected("Incorrect tag value"))
+                            }
+                        }
+                    }
                     _ => {
-                        ::std::result::Result::Err(<#err_ty as jayson::DeserializeError>::unexpected("Incorrect tag value"))
+                        ::std::result::Result::Err(<#err_ty as jayson::DeserializeError>::incorrect_value_kind(&[jayson::ValueKind::Map]))
                     }
                 }
             }
@@ -87,7 +94,7 @@ fn generate_derive_tagged_enum_variant_impl(
                         match key.as_str() {
                             #(
                                 #key_names => {
-                                    #field_names = ::std::option::Option::Some(<#field_tys as jayson::DeserializeFromValue<#err_ty>>::deserialize_from_value(value)?);
+                                    #field_names = ::std::option::Option::Some(<#field_tys as jayson::DeserializeFromValue<#err_ty>>::deserialize_from_value(jayson::IntoValue::into_value(value))?);
                                 }
                             )*
                             key => { #unknown_key }

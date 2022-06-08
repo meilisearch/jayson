@@ -23,31 +23,40 @@ pub fn generate_derive_struct_impl(
 
     quote! {
          #impl_trait_tokens {
-            fn deserialize_from_value<V: jayson::Value>(value: V) -> ::std::result::Result<Self, #err_ty> {
-                let kind = value.kind();
-
-                let map = value.as_map().ok_or_else(|| <#err_ty as jayson::DeserializeError>::incorrect_value_kind(kind, &[jayson::ValueKind::Map]))?;
-
-                #(
-                    let mut #field_names = #field_defaults;
-                )*
-
-                for (key, value) in jayson::Map::into_iter(map) {
-                    match key.as_str() {
+            fn deserialize_from_value<V: jayson::IntoValue>(value: jayson::Value<V>) -> ::std::result::Result<Self, #err_ty> {
+                match value {
+                    jayson::Value::Map(map) => {
                         #(
-                            #key_names => {
-                                #field_names = ::std::option::Option::Some(<#field_tys as jayson::DeserializeFromValue<#err_ty>>::deserialize_from_value(value)?);
-                            }
+                            let mut #field_names: Option<_> = #field_defaults;
                         )*
-                        key => { #unknown_key }
+                        for (key, value) in jayson::Map::into_iter(map) {
+                            match key.as_str() {
+                                #(
+                                    #key_names => {
+                                        #field_names = ::std::option::Option::Some(
+                                            <#field_tys as jayson::DeserializeFromValue<#err_ty>>::deserialize_from_value(
+                                                jayson::IntoValue::into_value(value)
+                                            )?
+                                        );
+                                    }
+                                )*
+                                key => { #unknown_key }
+                            }
+                        }
+                        ::std::result::Result::Ok(Self {
+                            #(
+                                #field_names : #field_names.ok_or_else(|| #missing_field_errors)?,
+                            )*
+                        })
+                    }
+                    _ => {
+                        ::std::result::Result::Err(
+                            <#err_ty as jayson::DeserializeError>::incorrect_value_kind(
+                                &[jayson::ValueKind::Map]
+                            )
+                        )
                     }
                 }
-
-                ::std::result::Result::Ok(Self {
-                    #(
-                        #field_names : #field_names.ok_or_else(|| #missing_field_errors)?,
-                    )*
-                })
             }
         }
     }

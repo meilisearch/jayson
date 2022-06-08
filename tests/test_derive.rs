@@ -1,14 +1,11 @@
-use jayson::DeserializeFromValue;
+use jayson::{DeserializeFromValue, IntoValue};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum MyError {
     Unexpected(String),
     MissingField(String),
-    IncorrectValueKind {
-        actual: jayson::ValueKind,
-        accepted: Vec<jayson::ValueKind>,
-    },
+    IncorrectValueKind { accepted: Vec<jayson::ValueKind> },
     UnknownKey(String),
     CustomMissingField(u8),
 }
@@ -21,9 +18,8 @@ impl jayson::DeserializeError for MyError {
         Self::MissingField(field.to_owned())
     }
 
-    fn incorrect_value_kind(actual: jayson::ValueKind, accepted: &[jayson::ValueKind]) -> Self {
+    fn incorrect_value_kind(accepted: &[jayson::ValueKind]) -> Self {
         Self::IncorrectValueKind {
-            actual,
             accepted: accepted.into_iter().copied().collect(),
         }
     }
@@ -195,7 +191,7 @@ where
     T: Serialize + DeserializeFromValue<MyError> + PartialEq + std::fmt::Debug,
 {
     let json = serde_json::to_value(&x).unwrap();
-    let result = T::deserialize_from_value(json).unwrap();
+    let result = T::deserialize_from_value(json.into_value()).unwrap();
 
     assert_eq!(result, x);
 }
@@ -208,7 +204,7 @@ where
     let json: serde_json::Value = serde_json::from_str(j).unwrap();
 
     let actual_serde: Result<T, _> = serde_json::from_str(j);
-    let actual_jayson: Result<T, _> = T::deserialize_from_value(json);
+    let actual_jayson: Result<T, _> = T::deserialize_from_value(json.into_value());
 
     match (actual_serde, actual_jayson) {
         (Ok(actual_serde), Ok(actual_jayson)) => {
@@ -226,7 +222,7 @@ where
     T: DeserializeFromValue<MyError> + PartialEq + std::fmt::Debug,
 {
     let json: serde_json::Value = serde_json::from_str(j).unwrap();
-    let actual: MyError = T::deserialize_from_value(json).unwrap_err();
+    let actual: MyError = T::deserialize_from_value(json.into_value()).unwrap_err();
 
     assert_eq!(actual, expected);
 }
