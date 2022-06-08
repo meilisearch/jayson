@@ -82,6 +82,8 @@ impl<'a> DerivedStruct<'a> {
         Ok(quote! {
             #[allow(non_upper_case_globals)]
             const #dummy: () = {
+                use jayson::de::VisitorError;
+
                 #[repr(C)]
                 struct __Visitor #impl_generics #where_clause {
                     __out: jayson::__private::Option<#ident #ty_generics>,
