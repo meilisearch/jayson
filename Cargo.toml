@@ -8,7 +8,6 @@ repository = "https://github.com/meilisearch/jayson"
 readme = "README.md"
 exclude = ["benches"]
 edition = "2018"
-rust-version = "1.36"
 
 [dependencies]
 itoa = "1.0"
