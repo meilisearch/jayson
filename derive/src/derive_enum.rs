@@ -156,7 +156,7 @@ impl<'a> DerivedEnum<'a> {
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
 
         let bound = parse_quote!(jayson::Deserialize);
-        let bounded_where_clause = bound::where_clause_with_bound(&self.generics, bound);
+        let bounded_where_clause = bound::where_clause_with_bound(self.generics, bound);
 
         Ok(quote! {
             #[allow(non_upper_case_globals)]

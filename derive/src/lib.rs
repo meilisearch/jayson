@@ -38,64 +38,58 @@ impl FieldAttrs {
     fn parse(attrs: &[Attribute]) -> syn::Result<Self> {
         let mut this = Self::default();
         for attr in attrs.iter() {
-            match attr.parse_meta()? {
-                Meta::List(MetaList { path, nested, .. }) => {
-                    if matches!(
-                        path.get_ident().unwrap().to_string().as_str(),
-                        "jayson" | "serde"
-                    ) {
-                        for nested in nested.iter() {
-                            match nested {
-                                syn::NestedMeta::Meta(meta) => match meta {
-                                    Meta::NameValue(nv) => {
-                                        match nv.path.get_ident().unwrap().to_string().as_str() {
-                                            "rename" => {
-                                                let name =
-                                                    match &nv.lit {
-                                                        syn::Lit::Str(v) => v.value(),
-                                                        _ => return Err(Error::new(
-                                                            nv.lit.span(),
-                                                            "“rename” should be a string literal",
-                                                        )),
-                                                    };
+            if let Meta::List(MetaList { path, nested, .. }) = attr.parse_meta()? {
+                if matches!(
+                    path.get_ident().unwrap().to_string().as_str(),
+                    "jayson" | "serde"
+                ) {
+                    for nested in nested.iter() {
+                        match nested {
+                            syn::NestedMeta::Meta(meta) => match meta {
+                                Meta::NameValue(nv) => {
+                                    match nv.path.get_ident().unwrap().to_string().as_str() {
+                                        "rename" => {
+                                            let name = match &nv.lit {
+                                                syn::Lit::Str(v) => v.value(),
+                                                _ => {
+                                                    return Err(Error::new(
+                                                        nv.lit.span(),
+                                                        "“rename” should be a string literal",
+                                                    ))
+                                                }
+                                            };
 
-                                                this.rename.replace(name);
-                                            }
-                                            "default" => {
-                                                let name =
-                                                    match &nv.lit {
-                                                        syn::Lit::Str(v) => v.value(),
-                                                        _ => return Err(Error::new(
-                                                            nv.lit.span(),
-                                                            "“default” should be a string literal",
-                                                        )),
-                                                    };
+                                            this.rename.replace(name);
+                                        }
+                                        "default" => {
+                                            let name = match &nv.lit {
+                                                syn::Lit::Str(v) => v.value(),
+                                                _ => {
+                                                    return Err(Error::new(
+                                                        nv.lit.span(),
+                                                        "“default” should be a string literal",
+                                                    ))
+                                                }
+                                            };
 
-                                                this.default.replace(name);
-                                            }
-                                            _ => {
-                                                return Err(Error::new(
-                                                    nv.path.span(),
-                                                    "Unknown serde attribute",
-                                                ))
-                                            }
+                                            this.default.replace(name);
+                                        }
+                                        _ => {
+                                            return Err(Error::new(
+                                                nv.path.span(),
+                                                "Unknown serde attribute",
+                                            ))
                                         }
                                     }
-                                    _ => {
-                                        return Err(Error::new(
-                                            nested.span(),
-                                            "Unexpected attribute",
-                                        ))
-                                    }
-                                },
-                                syn::NestedMeta::Lit(lit) => {
-                                    return Err(Error::new(lit.span(), "Unexpected attribute"))
                                 }
+                                _ => return Err(Error::new(nested.span(), "Unexpected attribute")),
+                            },
+                            syn::NestedMeta::Lit(lit) => {
+                                return Err(Error::new(lit.span(), "Unexpected attribute"))
                             }
                         }
                     }
                 }
-                _ => (),
             }
         }
         Ok(this)
@@ -187,41 +181,40 @@ impl DataAttrs {
         let mut struct_attrs = DataAttrs::default();
 
         for attr in attrs.iter() {
-            match attr.parse_meta()? {
-                Meta::List(MetaList { path, nested, .. }) => {
-                    if matches!(
-                        path.get_ident().unwrap().to_string().as_str(),
-                        "jayson" | "serde"
-                    ) {
-                        for nested in nested.iter() {
-                            match nested {
-                                syn::NestedMeta::Meta(meta) => {
-                                    match meta {
-                                        Meta::NameValue(nv) => {
-                                            match nv.path.get_ident().unwrap().to_string().as_str()
-                                            {
-                                                "error" => {
-                                                    let ty =
-                                                        match &nv.lit {
-                                                            syn::Lit::Str(v) => v.value(),
-                                                            _ => return Err(Error::new(
-                                                                nv.lit.span(),
-                                                                "error should be a string literal",
-                                                            )),
-                                                        };
-                                                    struct_attrs.err_ty.replace(ty);
+            if let Meta::List(MetaList { path, nested, .. }) = attr.parse_meta()? {
+                if matches!(
+                    path.get_ident().unwrap().to_string().as_str(),
+                    "jayson" | "serde"
+                ) {
+                    for nested in nested.iter() {
+                        match nested {
+                            syn::NestedMeta::Meta(meta) => match meta {
+                                Meta::NameValue(nv) => {
+                                    match nv.path.get_ident().unwrap().to_string().as_str() {
+                                        "error" => {
+                                            let ty = match &nv.lit {
+                                                syn::Lit::Str(v) => v.value(),
+                                                _ => {
+                                                    return Err(Error::new(
+                                                        nv.lit.span(),
+                                                        "error should be a string literal",
+                                                    ))
                                                 }
-                                                "rename_all" => {
-                                                    let case =
-                                                        match &nv.lit {
-                                                            syn::Lit::Str(v) => v.value(),
-                                                            _ => return Err(Error::new(
-                                                                nv.lit.span(),
-                                                                "error should be a string literal",
-                                                            )),
-                                                        };
+                                            };
+                                            struct_attrs.err_ty.replace(ty);
+                                        }
+                                        "rename_all" => {
+                                            let case = match &nv.lit {
+                                                syn::Lit::Str(v) => v.value(),
+                                                _ => {
+                                                    return Err(Error::new(
+                                                        nv.lit.span(),
+                                                        "error should be a string literal",
+                                                    ))
+                                                }
+                                            };
 
-                                                    let rename_all = match case.as_str() {
+                                            let rename_all = match case.as_str() {
                                                     "camelCase" => RenameAll::CamelCase,
                                                     "lowercase" => RenameAll::LowerCase,
                                                     _ => {
@@ -232,67 +225,62 @@ impl DataAttrs {
                                                     }
                                                 };
 
-                                                    struct_attrs.rename_all.replace(rename_all);
-                                                }
-                                                "tag" => {
-                                                    if !is_enum {
-                                                        return Err(Error::new(
-                                                            nv.path.span(),
-                                                            "tag is only supported on enums.",
-                                                        ));
-                                                    }
-
-                                                    let tag =
-                                                        match &nv.lit {
-                                                            syn::Lit::Str(v) => v.value(),
-                                                            _ => return Err(Error::new(
-                                                                nv.lit.span(),
-                                                                "tag should be a string literal",
-                                                            )),
-                                                        };
-
-                                                    struct_attrs.tag = TagType::Internal(tag);
-                                                }
-                                                _ => {
-                                                    return Err(Error::new(
-                                                        nv.path.span(),
-                                                        "Unknown serde attribute",
-                                                    ))
-                                                }
-                                            }
+                                            struct_attrs.rename_all.replace(rename_all);
                                         }
-                                        Meta::Path(p) => {
-                                            if let Some(ident) = p.get_ident() {
-                                                if ident == "deny_unknown_fields" {
-                                                } else {
-                                                    return Err(Error::new(
-                                                        nested.span(),
-                                                        "Unexpected attribute",
-                                                    ));
-                                                }
-                                            } else {
+                                        "tag" => {
+                                            if !is_enum {
                                                 return Err(Error::new(
-                                                    nested.span(),
-                                                    "Unexpected attribute",
+                                                    nv.path.span(),
+                                                    "tag is only supported on enums.",
                                                 ));
                                             }
+
+                                            let tag = match &nv.lit {
+                                                syn::Lit::Str(v) => v.value(),
+                                                _ => {
+                                                    return Err(Error::new(
+                                                        nv.lit.span(),
+                                                        "tag should be a string literal",
+                                                    ))
+                                                }
+                                            };
+
+                                            struct_attrs.tag = TagType::Internal(tag);
                                         }
-                                        Meta::List(_) => {
+                                        _ => {
                                             return Err(Error::new(
-                                                nested.span(),
-                                                "Unexpected attribute",
+                                                nv.path.span(),
+                                                "Unknown serde attribute",
                                             ))
                                         }
                                     }
                                 }
-                                syn::NestedMeta::Lit(lit) => {
-                                    return Err(Error::new(lit.span(), "Unexpected attribute"))
+                                Meta::Path(p) => {
+                                    if let Some(ident) = p.get_ident() {
+                                        if ident == "deny_unknown_fields" {
+                                        } else {
+                                            return Err(Error::new(
+                                                nested.span(),
+                                                "Unexpected attribute",
+                                            ));
+                                        }
+                                    } else {
+                                        return Err(Error::new(
+                                            nested.span(),
+                                            "Unexpected attribute",
+                                        ));
+                                    }
                                 }
+                                Meta::List(_) => {
+                                    return Err(Error::new(nested.span(), "Unexpected attribute"))
+                                }
+                            },
+                            syn::NestedMeta::Lit(lit) => {
+                                return Err(Error::new(lit.span(), "Unexpected attribute"))
                             }
                         }
                     }
                 }
-                _ => (),
             }
         }
         Ok(struct_attrs)
@@ -319,9 +307,9 @@ impl<'a> Derived<'a> {
             Data::Struct(DataStruct {
                 fields: syn::Fields::Named(fields),
                 ..
-            }) => Ok(Self::Struct(DerivedStruct::parse(&input, fields)?)),
+            }) => Ok(Self::Struct(DerivedStruct::parse(input, fields)?)),
             Data::Enum(DataEnum { variants, .. }) => {
-                Ok(Self::Enum(DerivedEnum::parse(&input, variants)?))
+                Ok(Self::Enum(DerivedEnum::parse(input, variants)?))
             }
             Data::Struct(_) => Err(Error::new(
                 Span::call_site(),

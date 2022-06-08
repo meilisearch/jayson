@@ -43,9 +43,9 @@ impl<'a> DerivedStruct<'a> {
             })?)?;
 
         let bound = parse_quote!(jayson::Deserialize);
-        let bounded_where_clause = bound::where_clause_with_bound(&self.generics, bound);
+        let bounded_where_clause = bound::where_clause_with_bound(self.generics, bound);
 
-        let wrapper_generics = bound::with_lifetime_bound(&self.generics, "'__a");
+        let wrapper_generics = bound::with_lifetime_bound(self.generics, "'__a");
         let (wrapper_impl_generics, wrapper_ty_generics, _) = wrapper_generics.split_for_impl();
 
         let fieldname = self

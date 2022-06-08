@@ -32,7 +32,7 @@ use std::fmt::LowerHex;
 pub fn from_str<T: Jayson<E>, E: VisitorError>(j: &str) -> Result<T, E> {
     let mut out = None;
     from_str_impl(j, T::begin(&mut out))?;
-    out.ok_or(E::unexpected("Failed to deserialize"))
+    out.ok_or_else(|| E::unexpected("Failed to deserialize"))
 }
 
 struct Deserializer<'a, 'b, E> {
@@ -160,7 +160,7 @@ fn from_str_impl<E: VisitorError>(j: &str, visitor: &mut dyn Visitor<E>) -> Resu
                 found => {
                     if accept_comma {
                         if found == 0 {
-                            return Err(de.error(format!("unexpected EOF")));
+                            return Err(de.error("unexpected EOF"));
                         } else {
                             return Err(de.error(format!("unexpected `{}`", found as char)));
                         }
@@ -307,7 +307,8 @@ impl<'a, 'b, E: VisitorError> Deserializer<'a, 'b, E> {
     }
 
     fn next_or_eof(&mut self) -> Result<u8, E> {
-        self.next().ok_or(E::format_error(0, 0, "unexpected EOF"))
+        self.next()
+            .ok_or_else(|| E::format_error(0, 0, "unexpected EOF"))
     }
 
     fn bump_line(&mut self) {
