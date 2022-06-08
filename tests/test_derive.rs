@@ -185,6 +185,44 @@ enum EnumMissingFieldError {
     },
 }
 
+#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[jayson(error = MyError, tag = "t")]
+#[serde(tag = "t")]
+enum EnumRenamedVariant {
+    #[serde(rename = "Apple")]
+    #[jayson(rename = "Apple")]
+    A { x: bool },
+    #[serde(rename = "Beta")]
+    #[jayson(rename = "Beta")]
+    B,
+}
+
+#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[jayson(error = MyError, tag = "t")]
+#[serde(tag = "t")]
+enum EnumRenamedField {
+    A {
+        #[jayson(rename = "Xylem")]
+        #[serde(rename = "Xylem")]
+        x: bool,
+    },
+}
+
+#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[jayson(error = MyError, tag = "t")]
+#[serde(tag = "t")]
+enum EnumRenamedAllVariant {
+    #[jayson(rename_all = camelCase)]
+    #[serde(rename_all = "camelCase")]
+    P { water_potential: bool },
+}
+
+#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[jayson(error = MyError)]
+struct Generic<A> {
+    some_field: A,
+}
+
 #[track_caller]
 fn compare_with_serde_roundtrip<T>(x: T)
 where
@@ -412,4 +450,24 @@ fn test_de() {
         "#,
         MyError::MissingField("x".to_owned()),
     );
+
+    // enum with renamed variants, roundtrip 1
+    compare_with_serde_roundtrip(EnumRenamedVariant::A { x: true });
+    // enum with renamed variants, roundtrip 2
+    compare_with_serde_roundtrip(EnumRenamedVariant::B);
+
+    // enum with renamed field, roundtrip
+    compare_with_serde_roundtrip(EnumRenamedField::A { x: true });
+
+    // enum with rename_all variant, roundtrip
+    compare_with_serde_roundtrip(EnumRenamedAllVariant::P {
+        water_potential: true,
+    });
+
+    // generic no bounds, roundtrip
+    compare_with_serde_roundtrip(Generic::<EnumRenamedAllVariant> {
+        some_field: EnumRenamedAllVariant::P {
+            water_potential: true,
+        },
+    });
 }
