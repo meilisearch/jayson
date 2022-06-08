@@ -1,6 +1,6 @@
-use jayson::Deserialize;
+use jayson::Jayson;
 
-#[derive(Deserialize)]
+#[derive(Jayson)]
 struct UnitStruct;
 
 fn main() {}

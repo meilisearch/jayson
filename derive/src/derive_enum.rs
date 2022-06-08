@@ -1,7 +1,8 @@
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
-    parse_quote, punctuated::Punctuated, token::Comma, DeriveInput, Error, Generics, Ident, Type,
+    parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma, DeriveInput, Error,
+    Generics, Ident, Type,
 };
 
 use crate::{bound, str_name, DataAttrs, Fields, RenameAll};
@@ -89,19 +90,23 @@ impl<'a> DerivedEnum<'a> {
     ) -> syn::Result<Vec<Variant<'a>>> {
         let mut out_variants = Vec::new();
         for variant in variants.iter() {
-            let variant = match variant.fields {
-                syn::Fields::Named(ref named) => {
-                    let name = &variant.ident;
-                    let fields = Fields::parse(named)?;
-                    Variant::Named { name, fields }
-                }
-                syn::Fields::Unit => {
-                    let name = &variant.ident;
+            let variant =
+                match variant.fields {
+                    syn::Fields::Named(ref named) => {
+                        let name = &variant.ident;
+                        let fields = Fields::parse(named)?;
+                        Variant::Named { name, fields }
+                    }
+                    syn::Fields::Unit => {
+                        let name = &variant.ident;
 
-                    Variant::Unit { name }
-                }
-                syn::Fields::Unnamed(_) => unimplemented!("unsupported unit struct variant"),
-            };
+                        Variant::Unit { name }
+                    }
+                    syn::Fields::Unnamed(_) => return Err(Error::new(
+                        variant.span(),
+                        "Invalid variant: only simple enum variants and struct enums are supported",
+                    )),
+                };
 
             out_variants.push(variant);
         }
@@ -129,9 +134,10 @@ impl<'a> DerivedEnum<'a> {
     pub fn gen(&self) -> syn::Result<TokenStream> {
         match self.attrs.tag {
             crate::TagType::Internal(ref name) => self.gen_internally_tagged(name),
-            crate::TagType::External => {
-                unimplemented!("externally tagged enums are not supported yet")
-            }
+            crate::TagType::External => Err(Error::new(
+                Span::call_site(),
+                "Enums with generics are not supported",
+            )),
         }
     }
 

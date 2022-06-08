@@ -1,6 +1,6 @@
-use jayson::Deserialize;
+use jayson::Jayson;
 
-#[derive(Deserialize)]
+#[derive(Jayson)]
 struct TupleStruct(i32, i32);
 
 fn main() {}
