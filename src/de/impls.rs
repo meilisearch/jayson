@@ -9,7 +9,6 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::mem::{self, ManuallyDrop};
 use core::str::{self, FromStr};
-use serde_json::Number;
 #[cfg(feature = "std")]
 use std::collections::HashMap;
 use std::collections::{BTreeSet, HashSet};
@@ -644,119 +643,126 @@ where
     }
 }
 
-impl<E: VisitorError> Jayson<E> for serde_json::Value {
-    fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
-        impl<E: VisitorError> Visitor<E> for Place<serde_json::Value> {
-            fn null(&mut self) -> Result<(), E> {
-                self.out = Some(serde_json::Value::Null);
-                Ok(())
-            }
+#[cfg(feature = "serde_json")]
+mod serde_json_impl {
+    use super::*;
 
-            fn boolean(&mut self, b: bool) -> Result<(), E> {
-                self.out = Some(serde_json::Value::Bool(b));
-                Ok(())
-            }
+    use serde_json::Number;
 
-            fn string(&mut self, s: &str) -> Result<(), E> {
-                self.out = Some(serde_json::Value::String(s.to_owned()));
-                Ok(())
-            }
-
-            fn negative(&mut self, n: i64) -> Result<(), E> {
-                self.out = Some(serde_json::Value::Number(Number::from(n)));
-                Ok(())
-            }
-
-            fn nonnegative(&mut self, n: u64) -> Result<(), E> {
-                self.out = Some(serde_json::Value::Number(Number::from(n)));
-                Ok(())
-            }
-
-            fn float(&mut self, n: f64) -> Result<(), E> {
-                if let Some(n) = Number::from_f64(n) {
-                    self.out = Some(serde_json::Value::Number(n));
+    impl<E: VisitorError> Jayson<E> for serde_json::Value {
+        fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
+            impl<E: VisitorError> Visitor<E> for Place<serde_json::Value> {
+                fn null(&mut self) -> Result<(), E> {
+                    self.out = Some(serde_json::Value::Null);
                     Ok(())
-                } else {
-                    Err(E::unexpected("{} is not a valid Json floating point"))
-                }
-            }
-
-            fn seq(&mut self) -> Result<Box<dyn Seq<E> + '_>, E> {
-                struct VecBuilder<'a> {
-                    out: &'a mut Option<serde_json::Value>,
-                    vec: Vec<serde_json::Value>,
-                    element: Option<serde_json::Value>,
                 }
 
-                impl<'a> VecBuilder<'a> {
-                    fn shift(&mut self) {
-                        if let Some(e) = self.element.take() {
-                            self.vec.push(e);
+                fn boolean(&mut self, b: bool) -> Result<(), E> {
+                    self.out = Some(serde_json::Value::Bool(b));
+                    Ok(())
+                }
+
+                fn string(&mut self, s: &str) -> Result<(), E> {
+                    self.out = Some(serde_json::Value::String(s.to_owned()));
+                    Ok(())
+                }
+
+                fn negative(&mut self, n: i64) -> Result<(), E> {
+                    self.out = Some(serde_json::Value::Number(Number::from(n)));
+                    Ok(())
+                }
+
+                fn nonnegative(&mut self, n: u64) -> Result<(), E> {
+                    self.out = Some(serde_json::Value::Number(Number::from(n)));
+                    Ok(())
+                }
+
+                fn float(&mut self, n: f64) -> Result<(), E> {
+                    if let Some(n) = Number::from_f64(n) {
+                        self.out = Some(serde_json::Value::Number(n));
+                        Ok(())
+                    } else {
+                        Err(E::unexpected("{} is not a valid Json floating point"))
+                    }
+                }
+
+                fn seq(&mut self) -> Result<Box<dyn Seq<E> + '_>, E> {
+                    struct VecBuilder<'a> {
+                        out: &'a mut Option<serde_json::Value>,
+                        vec: Vec<serde_json::Value>,
+                        element: Option<serde_json::Value>,
+                    }
+
+                    impl<'a> VecBuilder<'a> {
+                        fn shift(&mut self) {
+                            if let Some(e) = self.element.take() {
+                                self.vec.push(e);
+                            }
                         }
                     }
-                }
-                impl<'a, E: VisitorError> Seq<E> for VecBuilder<'a> {
-                    fn element(&mut self) -> Result<&mut dyn Visitor<E>, E> {
-                        self.shift();
-                        Ok(Jayson::begin(&mut self.element))
-                    }
+                    impl<'a, E: VisitorError> Seq<E> for VecBuilder<'a> {
+                        fn element(&mut self) -> Result<&mut dyn Visitor<E>, E> {
+                            self.shift();
+                            Ok(Jayson::begin(&mut self.element))
+                        }
 
-                    fn finish(&mut self) -> Result<(), E> {
-                        self.shift();
-                        let vec = std::mem::take(&mut self.vec);
-                        *self.out = Some(serde_json::Value::Array(vec));
-                        Ok(())
-                    }
-                }
-                Ok(Box::new(VecBuilder {
-                    out: &mut self.out,
-                    vec: vec![],
-                    element: None,
-                }))
-            }
-
-            fn map(&mut self) -> Result<Box<dyn Map<E> + '_>, E> {
-                struct MapBuilder<'a> {
-                    out: &'a mut Option<serde_json::Value>,
-                    map: serde_json::Map<String, serde_json::Value>,
-                    key: Option<String>,
-                    value: Option<serde_json::Value>,
-                }
-
-                impl<'a> MapBuilder<'a> {
-                    fn shift(&mut self) {
-                        if let (Some(k), Some(v)) = (self.key.take(), self.value.take()) {
-                            self.map.insert(k, v);
+                        fn finish(&mut self) -> Result<(), E> {
+                            self.shift();
+                            let vec = std::mem::take(&mut self.vec);
+                            *self.out = Some(serde_json::Value::Array(vec));
+                            Ok(())
                         }
                     }
+                    Ok(Box::new(VecBuilder {
+                        out: &mut self.out,
+                        vec: vec![],
+                        element: None,
+                    }))
                 }
 
-                impl<'a, E> Map<E> for MapBuilder<'a>
-                where
-                    E: VisitorError,
-                {
-                    fn key(&mut self, k: &str) -> Result<&mut dyn Visitor<E>, E> {
-                        self.shift();
-                        self.key = Some(k.to_owned());
-                        Ok(Jayson::begin(&mut self.value))
+                fn map(&mut self) -> Result<Box<dyn Map<E> + '_>, E> {
+                    struct MapBuilder<'a> {
+                        out: &'a mut Option<serde_json::Value>,
+                        map: serde_json::Map<String, serde_json::Value>,
+                        key: Option<String>,
+                        value: Option<serde_json::Value>,
                     }
 
-                    fn finish(&mut self) -> Result<(), E> {
-                        self.shift();
-                        let map = mem::take(&mut self.map);
-                        *self.out = Some(serde_json::Value::Object(map));
-                        Ok(())
+                    impl<'a> MapBuilder<'a> {
+                        fn shift(&mut self) {
+                            if let (Some(k), Some(v)) = (self.key.take(), self.value.take()) {
+                                self.map.insert(k, v);
+                            }
+                        }
                     }
+
+                    impl<'a, E> Map<E> for MapBuilder<'a>
+                    where
+                        E: VisitorError,
+                    {
+                        fn key(&mut self, k: &str) -> Result<&mut dyn Visitor<E>, E> {
+                            self.shift();
+                            self.key = Some(k.to_owned());
+                            Ok(Jayson::begin(&mut self.value))
+                        }
+
+                        fn finish(&mut self) -> Result<(), E> {
+                            self.shift();
+                            let map = mem::take(&mut self.map);
+                            *self.out = Some(serde_json::Value::Object(map));
+                            Ok(())
+                        }
+                    }
+                    Ok(Box::new(MapBuilder {
+                        out: &mut self.out,
+                        map: Default::default(),
+                        key: None,
+                        value: None,
+                    }))
                 }
-                Ok(Box::new(MapBuilder {
-                    out: &mut self.out,
-                    map: Default::default(),
-                    key: None,
-                    value: None,
-                }))
             }
+
+            Place::new(out)
         }
-
-        Place::new(out)
     }
 }
