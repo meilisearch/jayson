@@ -33,19 +33,6 @@ jobs:
       - run: cargo update -Z minimal-versions
       - run: cargo check
 
-  no_std:
-    name: no_std
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          target: aarch64-unknown-none
-      - run: cargo check
-                --manifest-path tests/crate/Cargo.toml
-                --target aarch64-unknown-none
-                --no-default-features
-
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
