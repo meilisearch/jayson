@@ -4,7 +4,7 @@
 
 extern crate test;
 
-use jayson::{DeserializeFromValue, Error};
+use jayson::{DeserializeFromValue, Error, IntoValue};
 use serde_derive::{Deserialize, Serialize};
 use test::Bencher;
 
@@ -17,7 +17,7 @@ fn bench_deserialize_jayson(b: &mut Bencher) {
     let j = input_json();
     b.iter(|| {
         let json = serde_json::from_str::<serde_json::Value>(&j).unwrap();
-        let t = Twitter::deserialize_from_value(json).unwrap();
+        let _t = Twitter::deserialize_from_value(json.into_value()).unwrap();
     });
 }
 
