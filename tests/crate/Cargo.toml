@@ -8,8 +8,4 @@ publish = false
 path = "test.rs"
 
 [dependencies]
-jayson = { path = "../..", default-features = false }
-
-[features]
-default = ["std"]
-std = ["jayson/std"]
+jayson = { path = "../.." }

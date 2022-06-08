@@ -30,6 +30,4 @@ members = ["derive", "tests/crate"]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [features]
-default = ["std"]
 serde_json = ["dep:serde_json"]
-std = []

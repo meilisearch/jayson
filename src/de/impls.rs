@@ -9,10 +9,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::mem::{self, ManuallyDrop};
 use core::str::{self, FromStr};
-#[cfg(feature = "std")]
-use std::collections::HashMap;
-use std::collections::{BTreeSet, HashSet};
-#[cfg(feature = "std")]
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::hash::{BuildHasher, Hash};
 
 use super::VisitorError;
@@ -413,7 +410,6 @@ impl<E: VisitorError, T: Jayson<E>> Jayson<E> for Vec<T> {
     }
 }
 
-#[cfg(feature = "std")]
 impl<E, K, V, H> Jayson<E> for HashMap<K, V, H>
 where
     K: FromStr + Hash + Eq,
