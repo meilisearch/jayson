@@ -1,4 +1,4 @@
-use jayson::{de::VisitorError, json, Error, Jayson};
+use jayson::{json, Error, Jayson};
 use serde::{Deserialize, Serialize};
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
