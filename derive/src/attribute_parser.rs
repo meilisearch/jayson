@@ -8,14 +8,14 @@ pub enum JaysonDefaultFieldAttribute {
 }
 
 #[derive(Default, Debug)]
-pub struct JaysonFieldAttributes {
+pub struct FieldAttributes {
     pub rename: Option<LitStr>,
     pub default: Option<JaysonDefaultFieldAttribute>,
     pub missing_field_error: Option<Expr>,
 }
 
-impl JaysonFieldAttributes {
-    fn overwrite(&mut self, other: JaysonFieldAttributes) {
+impl FieldAttributes {
+    fn overwrite(&mut self, other: FieldAttributes) {
         if let Some(rename) = other.rename {
             self.rename = Some(rename)
         }
@@ -28,9 +28,9 @@ impl JaysonFieldAttributes {
     }
 }
 
-impl syn::parse::Parse for JaysonFieldAttributes {
+impl syn::parse::Parse for FieldAttributes {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut this = JaysonFieldAttributes::default();
+        let mut this = FieldAttributes::default();
         // parse starting right after #[jayson .... ]
         // so first get the content inside the parentheses
 
@@ -90,14 +90,14 @@ impl syn::parse::Parse for JaysonFieldAttributes {
 
 pub fn read_jayson_field_attributes(
     attributes: &[Attribute],
-) -> Result<JaysonFieldAttributes, syn::Error> {
-    let mut this = JaysonFieldAttributes::default();
+) -> Result<FieldAttributes, syn::Error> {
+    let mut this = FieldAttributes::default();
     for attribute in attributes {
         if let Some(ident) = attribute.path.get_ident() {
             if ident != "jayson" {
                 continue;
             }
-            let other = parse2::<JaysonFieldAttributes>(attribute.tokens.clone())?;
+            let other = parse2::<FieldAttributes>(attribute.tokens.clone())?;
             this.overwrite(other);
         } else {
             continue;

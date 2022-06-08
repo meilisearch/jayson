@@ -11,10 +11,12 @@ edition = "2018"
 rust-version = "1.36"
 
 [dependencies]
-itoa = "1.0"
-jayson-internal = { version = "=0.1.0", path = "derive" }
-ryu = "1.0"
 serde_json = { version = "1.0", optional = true }
+jayson-internal = { version = "=0.1.0", path = "derive" }
+
+[features]
+default = ["serde_json"]
+serde_json = ["dep:serde_json"]
 
 [dev-dependencies]
 automod = "1.0"
@@ -24,12 +26,8 @@ serde_derive = "1.0"
 trybuild = { version = "1.0.49", features = ["diff"] }
 
 [workspace]
-members = ["derive", "tests/crate"]
+members = ["derive"]
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-[features]
-default = ["std"]
-serde_json = ["dep:serde_json"]
-std = []

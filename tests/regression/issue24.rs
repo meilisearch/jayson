@@ -1,6 +1,6 @@
-use jayson::{json, Error, Jayson};
+use jayson::{DeserializeFromValue, Error};
 
-#[derive(Jayson)]
+#[derive(DeserializeFromValue)]
 #[jayson(error = Error)]
 pub struct Point {
     pub x: u32,
@@ -9,6 +9,6 @@ pub struct Point {
 
 #[test]
 fn main() {
-    let result = json::from_str::<Point, Error>(r#"{"x": 1, "y": 2, "z": 3}"#);
-    assert!(result.is_ok());
+    let result = serde_json::from_str::<serde_json::Value>(r#"{"x": 1, "y": 2, "z": 3}"#).unwrap();
+    let _ = Point::deserialize_from_value(result).unwrap();
 }

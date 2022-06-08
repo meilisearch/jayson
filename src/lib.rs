@@ -1,59 +1,94 @@
-#![doc(html_root_url = "https://docs.rs/jayson/0.1.24")]
-#![allow(
-    clippy::needless_doctest_main,
-    clippy::vec_init_then_push,
-    // Regression causing false positives:
-    // https://github.com/rust-lang/rust-clippy/issues/5343
-    clippy::useless_transmute,
-    // Clippy bug: https://github.com/rust-lang/rust-clippy/issues/5704
-    clippy::unnested_or_patterns,
-    // We support older compilers.
-    clippy::manual_range_contains,
-    // Pedantic.
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::checked_conversions,
-    clippy::doc_markdown,
-    clippy::enum_glob_use,
-    clippy::let_underscore_drop,
-    clippy::missing_errors_doc,
-    clippy::must_use_candidate,
-    clippy::redundant_else,
-    clippy::shadow_unrelated,
-    clippy::single_match_else,
-    clippy::too_many_lines,
-)]
-extern crate alloc;
+mod impls;
+#[cfg(feature = "serde_json")]
+mod serde_json;
 
-#[doc(hidden)]
-pub use jayson_internal::*;
+pub use jayson_internal::DeserializeFromValue;
 
-// These derives were renamed from MiniTrait -> Trait with the release of Rust
-// 1.30.0. Keep exposing the old names for backward compatibility but remove in
-// the next major version of jayson.
-#[doc(hidden)]
-pub use jayson_internal::Jayson;
+use std::hash::Hash;
 
-// Not public API.
-#[doc(hidden)]
-#[path = "export.rs"]
-pub mod __private;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ValueKind {
+    Null,
+    Boolean,
+    Integer,
+    NegativeInteger,
+    Float,
+    String,
+    Sequence,
+    Map,
+}
 
-#[macro_use]
-mod careful;
+pub trait Value: Sized {
+    type Sequence: Sequence<Value = Self>;
+    type Map: Map<Value = Self>;
 
-#[macro_use]
-mod place;
+    fn kind(&self) -> ValueKind;
 
-mod error;
-mod ignore;
-mod ptr;
+    fn is_null(&self) -> bool;
+    fn as_boolean(self) -> Option<bool>;
+    fn as_integer(self) -> Option<u64>;
+    fn as_negative_integer(self) -> Option<i64>;
+    fn as_float(self) -> Option<f64>;
+    fn as_string(self) -> Option<String>;
+    fn as_sequence(self) -> Option<Self::Sequence>;
+    fn as_map(self) -> Option<Self::Map>;
+}
 
-pub mod de;
-pub mod json;
+pub trait Sequence {
+    type Value: Value;
+    type Iter: Iterator<Item = Self::Value>;
 
-#[doc(inline)]
-pub use crate::de::Jayson;
-pub use crate::error::{Error, Result};
+    fn len(&self) -> usize;
+    fn into_iter(self) -> Self::Iter;
+}
 
-make_place!(Place);
+pub trait Map {
+    type Value: Value;
+    type Iter: Iterator<Item = (String, Self::Value)>;
+
+    fn len(&self) -> usize;
+
+    fn remove(&mut self, key: &str) -> Option<Self::Value>;
+
+    fn into_iter(self) -> Self::Iter;
+}
+
+pub trait DeserializeFromValue<E: DeserializeError>: Sized {
+    fn deserialize_from_value<V: Value>(value: V) -> Result<Self, E>;
+
+    fn default() -> Option<Self> {
+        None
+    }
+}
+
+pub trait DeserializeError {
+    fn incorrect_value_kind(actual: ValueKind, accepted: &[ValueKind]) -> Self;
+    fn missing_field(field: &str) -> Self;
+    fn unexpected(msg: &str) -> Self;
+}
+
+#[derive(Debug)]
+pub enum Error {
+    IncorrectValueKind {
+        actual: ValueKind,
+        accepted: Vec<ValueKind>,
+    },
+    Unexpected(String),
+    MissingField(String),
+}
+impl DeserializeError for Error {
+    fn unexpected(s: &str) -> Self {
+        Self::Unexpected(s.to_owned())
+    }
+
+    fn missing_field(field: &str) -> Self {
+        Self::MissingField(field.to_owned())
+    }
+
+    fn incorrect_value_kind(actual: ValueKind, accepted: &[ValueKind]) -> Self {
+        Self::IncorrectValueKind {
+            actual,
+            accepted: accepted.into_iter().copied().collect(),
+        }
+    }
+}
