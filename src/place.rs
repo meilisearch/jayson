@@ -23,6 +23,7 @@
 /// # make_place!(Place);
 /// ```
 #[macro_export]
+#[allow(clippy::module_name_repetitions)]
 macro_rules! make_place {
     ($name:ident) => {
         #[repr(C)]

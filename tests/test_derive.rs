@@ -1,7 +1,7 @@
 use jayson::{json, Error, Jayson};
 use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson, Eq)]
 #[serde(tag = "sometag")]
 #[jayson(error = "Error", tag = "sometag")]
 enum Tag {
@@ -9,7 +9,7 @@ enum Tag {
     B,
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson, Eq)]
 #[jayson(error = "Error")]
 struct Example {
     x: String,
@@ -18,14 +18,14 @@ struct Example {
     n: Box<Nested>,
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson, Eq)]
 #[jayson(error = "Error")]
 struct Nested {
     y: Option<Vec<String>>,
     z: Option<String>,
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson, Eq)]
 #[jayson(error = "Error")]
 struct StructWithDefaultAttr {
     x: bool,
@@ -37,11 +37,13 @@ struct StructWithDefaultAttr {
 fn create_default_u8() -> u8 {
     1
 }
+
+#[allow(clippy::unnecessary_wraps)]
 fn create_default_option_string() -> Option<String> {
     Some("helllo".to_owned())
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Jayson, Eq)]
 #[serde(tag = "t")]
 #[jayson(error = "Error", tag = "t")]
 enum EnumWithOptionData {

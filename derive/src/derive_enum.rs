@@ -27,15 +27,15 @@ impl<'a> Variant<'a> {
         enum_ident: &Ident,
         err_ty: &Type,
         rename_all: Option<&RenameAll>,
-    ) -> syn::Result<TokenStream> {
+    ) -> TokenStream {
         match self {
             Variant::Unit { name } => {
                 let name_str = str_name(name.to_string(), rename_all, None);
-                Ok(quote! {
-                    #name_str => {
-                        self.__out.replace(#enum_ident::#name);
-                    }
-                })
+                quote! {
+                        #name_str => {
+                            self.__out.replace(#enum_ident::#name);
+                        }
+                }
             }
             Variant::Named { name, fields, .. } => {
                 let name_str = str_name(name.to_string(), rename_all, None);
@@ -67,7 +67,7 @@ impl<'a> Variant<'a> {
                 });
 
                 let field_names = fields.iter().map(|f| f.field_name);
-                Ok(quote! {
+                quote! {
                     #name_str => {
                         #(#field_impls)*
                         self.__out.replace(#enum_ident::#name {
@@ -78,7 +78,7 @@ impl<'a> Variant<'a> {
                             )*
                         });
                     }
-                })
+                }
             }
         }
     }
@@ -155,7 +155,7 @@ impl<'a> DerivedEnum<'a> {
             .variants
             .iter()
             .map(|v| v.gen(self.name, &err_ty, self.attrs.rename_all.as_ref()))
-            .collect::<syn::Result<Vec<_>>>()?;
+            .collect::<Vec<_>>();
 
         let ident = self.name;
 

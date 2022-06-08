@@ -141,8 +141,8 @@ impl<'a> Field<'a> {
 
         Ok(Self {
             field_name,
-            attrs,
             field_ty,
+            attrs,
         })
     }
 }
@@ -177,6 +177,7 @@ struct DataAttrs {
 }
 
 impl DataAttrs {
+    #[allow(clippy::too_many_lines)]
     fn parse(attrs: &[Attribute], is_enum: bool) -> syn::Result<Self> {
         let mut struct_attrs = DataAttrs::default();
 

@@ -20,13 +20,14 @@ impl<'a> DerivedStruct<'a> {
         let generics = &input.generics;
 
         Ok(Self {
+            name,
             fields,
             attrs,
-            name,
             generics,
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     pub fn gen(&self) -> syn::Result<TokenStream> {
         let dummy = Ident::new(
             &format!("_IMPL_MINIDESERIALIZE_FOR_{}", self.name),
