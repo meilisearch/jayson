@@ -37,7 +37,6 @@ pub fn generate_derive_tagged_enum_impl(
                         let tag_value_string = if let jayson::Value::String(x) = tag_value.into_value() {
                             x
                         } else {
-                            // TODO: better error message
                             return ::std::result::Result::Err(<#err_ty as jayson::DeserializeError>::unexpected("The tag should be a string"));
                         };
 

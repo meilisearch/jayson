@@ -242,7 +242,6 @@ pub struct NamedFieldsInfo {
 impl NamedFieldsInfo {
     fn parse(
         fields: syn::FieldsNamed,
-        // TODO: should have both data attributes and variant attributes
         data_attrs: &ContainerAttributesInfo,
         err_ty: &syn::Type,
     ) -> syn::Result<Self> {

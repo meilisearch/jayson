@@ -2,57 +2,59 @@
 
 ## Introduction
 
-Jayson is a heavily modified version of [miniserde](https://github.com/dtolnay/miniserde), with
-only the deserialization part. The goal is to be a drop in replacement for serde for deserializing
-json payloads and provide customizable error types that are tied to the type that the json is
-being deserilialized into rather than to the deserializer's error type, like serde does. This
-allows to return custom validation, rather than relying on serde's deserialization errors.
+Jayson is a crate for deserializing data, with the ability to return
+custom, type-specific errors upon failure.
+
+Unlike serde, Jayson does not parse the data in its serialization format itself,
+but offload the work to other crates. Instead, it deserializes
+the already-parsed serialized data into the final type. For example:
+
+```rust
+// bytes of the serialized value
+let s: &str = .. ;
+// parse serialized data using another crate, such as serde_json
+let json: serde_json::Value = serde_json::from_str(s)?;
+// finally deserialize with Jayson
+let data = T::deserialize_from_value(json.into_value())?;
+```
 
 ## Example
 
-### `VisitorError` trait
-
-The `VisitorError` is a trait that must be implemented by your error types.
-
-```rust
-
-struct MyError;
-
-pub trait VisitorError: 'static {
-    fn unexpected(s: &str) -> Self {
-	    MyError
-    }
-
-    fn format_error(line: usize, pos: usize, msg: &str) -> Self {
-	    MyError
-    }
-
-    fn missing_field(field: &str) -> Self {
-	    MyError
-    }
-}
-```
-
 ### Implementing deserialize for a custom type
 ```rust
-jayson::make_place!(Place);
+use jayson::{DeserializeError, DeserializeFromValue, Error};
+enum MyError {
+    ForbiddenName,
+    Other(Error)
+}
+impl DeserializeError for MyError {
+    fn unexpected(s: &str) -> Self {
+        Self::Other(Error::unexpected(s))
+    }
+    fn missing_field(field: &str) -> Self {
+        Self::Other(Error::missing_field(field))
+    }
+    fn incorrect_value_kind(accepted: &[ValueKind]) -> Self {
+        Self::Other(Error::incorrect_value_kind(accepted))
+    }
+}
 
 struct Name(String);
 
-impl Jayson<MyError> for Name {
-    fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<MyError> {
-        impl Visitor<MyError> for Place<Name> {
-            fn string(&mut self, s: &str) -> Result<(), MyError> {
-                if !s.chars().all(|c| c.is_ascii_alphanumeric()) {
-                    Err(Error::InvalidName(s.to_string()))
+impl DeserializeFromValue<MyError> for Name {
+    fn deserialize_from_value<V: IntoValue>(value: Value<V>) -> Result<Self, MyError> {
+        match value {
+            Value::String(s) => {
+                if s == "Robert '); DROP TABLE Students; --" {
+                    Err(MyError::ForbiddenName)
                 } else {
-                    self.out.replace(Name(s.to_string()));
-                    Ok(())
+                    Ok(Name(s))
                 }
             }
+            _ => {
+                Err(MyError::incorrect_value_kind(&[ValueKind::String]))
+            }
         }
-
-        Place::new(out)
     }
 }
 ```
@@ -60,22 +62,12 @@ impl Jayson<MyError> for Name {
 ### Using macros
 
 ```rust
-#[derive(Jayson)]
-#[jayson(error = "MyError")]
+#[derive(DeserializeFromValue)]
+#[jayson(error = MyError)]
 struct User {
 	name: Name,
 }
 ```
-
-## Features
-
-- [x] Derive macro for structs
-- [x] Derive macro for enums (internally tagged)
-- [x] rename all rule (camel case)
-- [x] rename rule
-- [ ] flatten
-- [ ] Actix web extractor
-- [ ] Documentation
 
 #### License
 
