@@ -1,6 +1,7 @@
-use jayson::Jayson;
+use jayson::DeserializeFromValue;
 
-#[derive(Jayson)]
+#[derive(DeserializeFromValue)]
+#[jayson(error = jayson::Error)]
 struct UnitStruct;
 
 fn main() {}
