@@ -147,7 +147,7 @@ where
     fn deserialize_from_value<V: IntoValue>(value: Value<V>) -> Result<Self, E> {
         match value {
             Value::Null => Ok(None),
-            value @ _ => T::deserialize_from_value(value).map(Some),
+            value => T::deserialize_from_value(value).map(Some),
         }
     }
     fn default() -> Option<Self> {

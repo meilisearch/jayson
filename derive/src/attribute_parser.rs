@@ -72,7 +72,7 @@ impl FieldAttributesInfo {
         if let Some(default) = other.default {
             if let Some(self_default_span) = &self.default_span {
                 return Err(syn::Error::new(
-                    self_default_span.clone(),
+                    *self_default_span,
                     "The `default` field attribute is defined twice.",
                 ));
             }
@@ -277,7 +277,7 @@ impl ContainerAttributesInfo {
         if let Some(x) = other.deny_unknown_fields {
             if let Some(self_deny_unknown_fields_span) = &self.deny_unknown_fields_span {
                 return Err(syn::Error::new(
-                    self_deny_unknown_fields_span.clone(),
+                    *self_deny_unknown_fields_span,
                     "The `deny_unknown_fields` attribute is defined twice.",
                 ));
             }

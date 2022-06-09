@@ -1,3 +1,4 @@
+#![allow(clippy::len_without_is_empty)]
 mod impls;
 #[cfg(feature = "serde_json")]
 mod serde_json;
@@ -85,7 +86,7 @@ impl DeserializeError for Error {
 
     fn incorrect_value_kind(accepted: &[ValueKind]) -> Self {
         Self::IncorrectValueKind {
-            accepted: accepted.into_iter().copied().collect(),
+            accepted: accepted.to_vec(),
         }
     }
 }

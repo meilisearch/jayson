@@ -20,12 +20,12 @@ impl jayson::DeserializeError for MyError {
 
     fn incorrect_value_kind(accepted: &[jayson::ValueKind]) -> Self {
         Self::IncorrectValueKind {
-            accepted: accepted.into_iter().copied().collect(),
+            accepted: accepted.to_vec(),
         }
     }
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[serde(tag = "sometag")]
 #[jayson(error = MyError, tag = "sometag")]
 enum Tag {
@@ -33,7 +33,7 @@ enum Tag {
     B,
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError)]
 struct Example {
     x: String,
@@ -42,14 +42,14 @@ struct Example {
     n: Box<Nested>,
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError)]
 struct Nested {
     y: Option<Vec<String>>,
     z: Option<String>,
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError)]
 struct StructWithDefaultAttr {
     x: bool,
@@ -60,7 +60,7 @@ struct StructWithDefaultAttr {
     #[jayson(default = create_default_option_string())]
     z: Option<String>,
 }
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError)]
 struct StructWithTraitDefaultAttr {
     #[serde(default)]
@@ -75,7 +75,7 @@ fn create_default_option_string() -> Option<String> {
     Some("hello".to_owned())
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[serde(tag = "t")]
 #[jayson(error = MyError, tag = "t")]
 enum EnumWithOptionData {
@@ -92,20 +92,20 @@ enum EnumWithOptionData {
     },
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError, rename_all = camelCase)]
 #[serde(rename_all = "camelCase")]
 struct RenamedAllCamelCaseStruct {
     renamed_field: bool,
 }
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError, rename_all = lowercase)]
 #[serde(rename_all = "lowercase")]
 struct RenamedAllLowerCaseStruct {
     renamed_field: bool,
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError, tag = "t", rename_all = camelCase)]
 #[serde(tag = "t")]
 #[serde(rename_all = "camelCase")]
@@ -113,7 +113,7 @@ enum RenamedAllCamelCaseEnum {
     SomeField { my_field: bool },
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError, tag = "t")]
 #[serde(tag = "t")]
 enum RenamedAllFieldsCamelCaseEnum {
@@ -122,7 +122,7 @@ enum RenamedAllFieldsCamelCaseEnum {
     SomeField { my_field: bool },
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError)]
 struct StructWithRenamedField {
     #[jayson(rename = "renamed_field")]
@@ -130,7 +130,7 @@ struct StructWithRenamedField {
     x: bool,
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError, deny_unknown_fields)]
 #[serde(deny_unknown_fields)]
 struct StructDenyUnknownFields {
@@ -141,14 +141,14 @@ fn unknown_field_error(k: &str) -> MyError {
     MyError::UnknownKey(k.to_owned())
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError, deny_unknown_fields = unknown_field_error)]
 #[serde(deny_unknown_fields)]
 struct StructDenyUnknownFieldsCustom {
     x: bool,
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError, tag = "t", deny_unknown_fields)]
 #[serde(tag = "t", deny_unknown_fields)]
 enum EnumDenyUnknownFields {
@@ -156,7 +156,7 @@ enum EnumDenyUnknownFields {
     Other { my_field: bool, y: u8 },
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError, tag = "t", deny_unknown_fields = unknown_field_error)]
 #[serde(tag = "t", deny_unknown_fields)]
 enum EnumDenyUnknownFieldsCustom {
@@ -164,7 +164,7 @@ enum EnumDenyUnknownFieldsCustom {
     Other { my_field: bool, y: u8 },
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError)]
 struct StructMissingFieldError {
     #[jayson(missing_field_error = MyError::CustomMissingField(0))]
@@ -173,7 +173,7 @@ struct StructMissingFieldError {
     y: bool,
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError, tag = "t")]
 enum EnumMissingFieldError {
     A {
@@ -185,7 +185,7 @@ enum EnumMissingFieldError {
     },
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError, tag = "t")]
 #[serde(tag = "t")]
 enum EnumRenamedVariant {
@@ -197,7 +197,7 @@ enum EnumRenamedVariant {
     B,
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError, tag = "t")]
 #[serde(tag = "t")]
 enum EnumRenamedField {
@@ -208,7 +208,7 @@ enum EnumRenamedField {
     },
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError, tag = "t")]
 #[serde(tag = "t")]
 enum EnumRenamedAllVariant {
@@ -217,7 +217,7 @@ enum EnumRenamedAllVariant {
     P { water_potential: bool },
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize, DeserializeFromValue)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize, DeserializeFromValue)]
 #[jayson(error = MyError)]
 struct Generic<A> {
     some_field: A,
@@ -249,8 +249,8 @@ where
             assert_eq!(actual_jayson, actual_serde);
         }
         (Err(_), Err(_)) => {}
-        (Ok(_), Err(_)) => assert!(false, "jayson fails to deserialize but serde does not"),
-        (Err(_), Ok(_)) => assert!(false, "serde fails to deserialize but jayson does not"),
+        (Ok(_), Err(_)) => panic!("jayson fails to deserialize but serde does not"),
+        (Err(_), Ok(_)) => panic!("serde fails to deserialize but jayson does not"),
     }
 }
 
