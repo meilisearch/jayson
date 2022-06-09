@@ -1,4 +1,4 @@
-use jayson::{de::VisitorError, json, Error, Jayson};
+use jayson::{json, Error, Jayson};
 
 #[derive(Jayson)]
 #[jayson(error = "Error")]

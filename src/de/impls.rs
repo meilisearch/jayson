@@ -9,10 +9,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::mem::{self, ManuallyDrop};
 use core::str::{self, FromStr};
-#[cfg(feature = "std")]
-use std::collections::HashMap;
-use std::collections::{BTreeSet, HashSet};
-#[cfg(feature = "std")]
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::hash::{BuildHasher, Hash};
 
 use super::VisitorError;
@@ -413,7 +410,6 @@ impl<E: VisitorError, T: Jayson<E>> Jayson<E> for Vec<T> {
     }
 }
 
-#[cfg(feature = "std")]
 impl<E, K, V, H> Jayson<E> for HashMap<K, V, H>
 where
     K: FromStr + Hash + Eq,
@@ -515,7 +511,7 @@ impl<E: VisitorError, K: FromStr + Ord, V: Jayson<E>> Jayson<E> for BTreeMap<K, 
             }
         }
 
-        impl<'a, E: VisitorError, K, V> Map<E> for MapBuilder<'a, K, V>
+        impl<'a, E, K, V> Map<E> for MapBuilder<'a, K, V>
         where
             E: VisitorError,
             K: FromStr + Ord,
@@ -592,36 +588,39 @@ where
     }
 }
 
-impl<T, E> Jayson<E> for HashSet<T>
+impl<T, E, S> Jayson<E> for HashSet<T, S>
 where
     E: VisitorError,
     T: Hash + Eq + Jayson<E>,
+    S: BuildHasher + std::default::Default,
 {
     fn begin(out: &mut Option<Self>) -> &mut dyn Visitor<E> {
-        impl<E, T> Visitor<E> for Place<HashSet<T>>
+        impl<E, T, S> Visitor<E> for Place<HashSet<T, S>>
         where
             T: Jayson<E> + Hash + Eq,
             E: VisitorError,
+            S: BuildHasher + std::default::Default,
         {
             fn seq(&mut self) -> Result<Box<dyn Seq<E> + '_>, E> {
                 Ok(Box::new(SeqBuilder {
                     out: &mut self.out,
-                    set: HashSet::new(),
+                    set: <HashSet<T, S> as std::default::Default>::default(),
                     value: None,
                 }))
             }
         }
 
-        struct SeqBuilder<'a, T: 'a> {
-            out: &'a mut Option<HashSet<T>>,
-            set: HashSet<T>,
+        struct SeqBuilder<'a, T: 'a, S> {
+            out: &'a mut Option<HashSet<T, S>>,
+            set: HashSet<T, S>,
             value: Option<T>,
         }
 
-        impl<'a, E, T> Seq<E> for SeqBuilder<'a, T>
+        impl<'a, E, T, S> Seq<E> for SeqBuilder<'a, T, S>
         where
             T: Jayson<E> + Hash + Eq,
             E: VisitorError,
+            S: BuildHasher + std::default::Default,
         {
             fn element(&mut self) -> Result<&mut dyn Visitor<E>, E> {
                 if let Some(value) = self.value.take() {

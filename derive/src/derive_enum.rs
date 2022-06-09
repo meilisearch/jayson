@@ -1,7 +1,8 @@
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
-    parse_quote, punctuated::Punctuated, token::Comma, DeriveInput, Error, Generics, Ident, Type,
+    parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma, DeriveInput, Error,
+    Generics, Ident, Type,
 };
 
 use crate::{bound, str_name, DataAttrs, Fields, RenameAll};
@@ -26,15 +27,15 @@ impl<'a> Variant<'a> {
         enum_ident: &Ident,
         err_ty: &Type,
         rename_all: Option<&RenameAll>,
-    ) -> syn::Result<TokenStream> {
+    ) -> TokenStream {
         match self {
             Variant::Unit { name } => {
                 let name_str = str_name(name.to_string(), rename_all, None);
-                Ok(quote! {
-                    #name_str => {
-                        self.__out.replace(#enum_ident::#name);
-                    }
-                })
+                quote! {
+                        #name_str => {
+                            self.__out.replace(#enum_ident::#name);
+                        }
+                }
             }
             Variant::Named { name, fields, .. } => {
                 let name_str = str_name(name.to_string(), rename_all, None);
@@ -66,7 +67,7 @@ impl<'a> Variant<'a> {
                 });
 
                 let field_names = fields.iter().map(|f| f.field_name);
-                Ok(quote! {
+                quote! {
                     #name_str => {
                         #(#field_impls)*
                         self.__out.replace(#enum_ident::#name {
@@ -77,7 +78,7 @@ impl<'a> Variant<'a> {
                             )*
                         });
                     }
-                })
+                }
             }
         }
     }
@@ -89,19 +90,23 @@ impl<'a> DerivedEnum<'a> {
     ) -> syn::Result<Vec<Variant<'a>>> {
         let mut out_variants = Vec::new();
         for variant in variants.iter() {
-            let variant = match variant.fields {
-                syn::Fields::Named(ref named) => {
-                    let name = &variant.ident;
-                    let fields = Fields::parse(named)?;
-                    Variant::Named { name, fields }
-                }
-                syn::Fields::Unit => {
-                    let name = &variant.ident;
+            let variant =
+                match variant.fields {
+                    syn::Fields::Named(ref named) => {
+                        let name = &variant.ident;
+                        let fields = Fields::parse(named)?;
+                        Variant::Named { name, fields }
+                    }
+                    syn::Fields::Unit => {
+                        let name = &variant.ident;
 
-                    Variant::Unit { name }
-                }
-                syn::Fields::Unnamed(_) => unimplemented!("unsupported unit struct variant"),
-            };
+                        Variant::Unit { name }
+                    }
+                    syn::Fields::Unnamed(_) => return Err(Error::new(
+                        variant.span(),
+                        "Invalid variant: only simple enum variants and struct enums are supported",
+                    )),
+                };
 
             out_variants.push(variant);
         }
@@ -129,9 +134,10 @@ impl<'a> DerivedEnum<'a> {
     pub fn gen(&self) -> syn::Result<TokenStream> {
         match self.attrs.tag {
             crate::TagType::Internal(ref name) => self.gen_internally_tagged(name),
-            crate::TagType::External => {
-                unimplemented!("externally tagged enums are not supported yet")
-            }
+            crate::TagType::External => Err(Error::new(
+                Span::call_site(),
+                "Enums with generics are not supported",
+            )),
         }
     }
 
@@ -149,18 +155,20 @@ impl<'a> DerivedEnum<'a> {
             .variants
             .iter()
             .map(|v| v.gen(self.name, &err_ty, self.attrs.rename_all.as_ref()))
-            .collect::<syn::Result<Vec<_>>>()?;
+            .collect::<Vec<_>>();
 
         let ident = self.name;
 
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
 
         let bound = parse_quote!(jayson::Deserialize);
-        let bounded_where_clause = bound::where_clause_with_bound(&self.generics, bound);
+        let bounded_where_clause = bound::where_clause_with_bound(self.generics, bound);
 
         Ok(quote! {
             #[allow(non_upper_case_globals)]
             const #dummy: () = {
+                use jayson::de::VisitorError;
+
                 #[repr(C)]
                 struct __Visitor #impl_generics #where_clause {
                     __out: jayson::__private::Option<#ident #ty_generics>,

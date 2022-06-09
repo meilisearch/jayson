@@ -20,13 +20,14 @@ impl<'a> DerivedStruct<'a> {
         let generics = &input.generics;
 
         Ok(Self {
+            name,
             fields,
             attrs,
-            name,
             generics,
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     pub fn gen(&self) -> syn::Result<TokenStream> {
         let dummy = Ident::new(
             &format!("_IMPL_MINIDESERIALIZE_FOR_{}", self.name),
@@ -43,9 +44,9 @@ impl<'a> DerivedStruct<'a> {
             })?)?;
 
         let bound = parse_quote!(jayson::Deserialize);
-        let bounded_where_clause = bound::where_clause_with_bound(&self.generics, bound);
+        let bounded_where_clause = bound::where_clause_with_bound(self.generics, bound);
 
-        let wrapper_generics = bound::with_lifetime_bound(&self.generics, "'__a");
+        let wrapper_generics = bound::with_lifetime_bound(self.generics, "'__a");
         let (wrapper_impl_generics, wrapper_ty_generics, _) = wrapper_generics.split_for_impl();
 
         let fieldname = self
@@ -82,6 +83,8 @@ impl<'a> DerivedStruct<'a> {
         Ok(quote! {
             #[allow(non_upper_case_globals)]
             const #dummy: () = {
+                use jayson::de::VisitorError;
+
                 #[repr(C)]
                 struct __Visitor #impl_generics #where_clause {
                     __out: jayson::__private::Option<#ident #ty_generics>,

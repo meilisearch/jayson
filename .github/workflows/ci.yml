@@ -15,44 +15,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [nightly, beta, stable, 1.44.0]
+        rust: [nightly, stable]
     steps:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{matrix.rust}}
       - run: cargo test
-      - run: cargo test --no-default-features
-
-  msrv:
-    name: Rust 1.36.0
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: dtolnay/rust-toolchain@1.36.0
-      - run: cargo test --doc
-
-  minimal:
-    name: Minimal versions
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: dtolnay/rust-toolchain@nightly
-      - run: cargo update -Z minimal-versions
-      - run: cargo check
-
-  no_std:
-    name: no_std
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          target: aarch64-unknown-none
-      - run: cargo check
-                --manifest-path tests/crate/Cargo.toml
-                --target aarch64-unknown-none
-                --no-default-features
 
   clippy:
     name: Clippy
@@ -74,12 +43,3 @@ jobs:
       - run: cargo miri test
         env:
           MIRIFLAGS: '-Zmiri-tag-raw-pointers'
-
-  outdated:
-    name: Outdated
-    runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
-    steps:
-      - uses: actions/checkout@v2
-      - uses: dtolnay/install@cargo-outdated
-      - run: cargo outdated --exit-code 1
