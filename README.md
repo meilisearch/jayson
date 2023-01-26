@@ -1,5 +1,11 @@
 # Jayson
 
+---
+
+⚠️ This repository is archived, please check out https://github.com/meilisearch/deserr/ instead.
+
+---
+
 ## Introduction
 
 Jayson is a crate for deserializing data, with the ability to return
