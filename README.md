@@ -2,7 +2,7 @@
 
 ---
 
-⚠️ This repository is archived, please check out (deserr)[https://github.com/meilisearch/deserr/] instead.
+⚠️ This repository is archived, please check out [deserr](https://github.com/meilisearch/deserr/) instead.
 
 ---
 
